@@ -12,6 +12,11 @@ const LABELS: Record<Category, string> = {
   profile: 'Profile',
 };
 
+export interface TerminalRenderOptions {
+  verbose?: boolean;
+  quiet?: boolean;
+}
+
 function scoreLine(label: string, score: number | null): string {
   return `${label.padEnd(22)}${score === null ? 'N/A' : String(score).padStart(3)}`;
 }
@@ -31,7 +36,82 @@ function renderFinding(finding: Finding): string {
     .join('\n');
 }
 
-export function renderTerminal(report: AnalysisReport): string {
+function impressionData(report: AnalysisReport): Record<string, unknown> {
+  return report.facts.firstImpression && typeof report.facts.firstImpression === 'object'
+    ? (report.facts.firstImpression as Record<string, unknown>)
+    : {};
+}
+
+function impressionMark(impression: Record<string, unknown>, key: string): string {
+  return impression[key] === 'yes' ? 'YES' : impression[key] === 'partly' ? 'PARTLY' : 'NO';
+}
+
+export function renderImpressionTerminal(report: AnalysisReport): string {
+  const impression = impressionData(report);
+  const findings = report.findings.filter((finding) => finding.category === 'impression');
+  return (
+    [
+      pc.bold('readme-fit · FIRST 5 SECONDS'),
+      `${report.project.primaryType} · ${report.readme.path}`,
+      '',
+      `Understand WHAT it is?    ${impressionMark(impression, 'what')}`,
+      `Understand WHY I need it? ${impressionMark(impression, 'why')}`,
+      `See it working?           ${impressionMark(impression, 'proof')}`,
+      `Know how to try it?       ${impressionMark(impression, 'try')}`,
+      `Trust the project?        ${impressionMark(impression, 'trust')}`,
+      '',
+      scoreLine('Score', report.scores.impression?.score ?? null),
+      '',
+      ...(findings.length
+        ? [
+            pc.bold('IMPRESSION PRIORITIES'),
+            '',
+            ...findings.flatMap((finding) => [renderFinding(finding), '']),
+          ]
+        : ['No first-impression findings.', '']),
+      'First-impression score is a heuristic based on README structure and content, not actual user testing.',
+    ]
+      .join('\n')
+      .trimEnd() + '\n'
+  );
+}
+
+export function renderImpressionJson(report: AnalysisReport): string {
+  return `${JSON.stringify(
+    {
+      schemaVersion: report.schemaVersion,
+      generatedAt: report.generatedAt,
+      project: report.project,
+      readme: report.readme,
+      score: report.scores.impression ?? null,
+      metrics: impressionData(report),
+      findings: report.findings.filter((finding) => finding.category === 'impression'),
+      disclaimer:
+        'First-impression score is a heuristic based on README structure and content, not actual user testing.',
+      limitations: report.limitations,
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+export function renderTerminal(
+  report: AnalysisReport,
+  options: TerminalRenderOptions = {},
+): string {
+  if (options.quiet) {
+    const critical = report.findings.filter((finding) => finding.severity === 'critical');
+    return (
+      [
+        `readme-fit ${report.overall}/100`,
+        ...critical.map(
+          (finding) =>
+            `${finding.priority} ${finding.title}${finding.source?.path ? ` (${finding.source.path}${finding.source.line ? `:${finding.source.line}` : ''})` : ''}`,
+        ),
+      ].join('\n') + '\n'
+    );
+  }
+
   const projectTypes = [report.project.primaryType, ...report.project.secondaryTypes].join(
     ' / ',
   );
@@ -40,13 +120,23 @@ export function renderTerminal(report: AnalysisReport): string {
     scoreLine(LABELS[category as Category], score?.score ?? null),
   );
   const top = report.findings.filter((finding) => finding.severity !== 'info').slice(0, 6);
-  const impression =
-    report.facts.firstImpression && typeof report.facts.firstImpression === 'object'
-      ? (report.facts.firstImpression as Record<string, unknown>)
-      : {};
-  const impressionScore = report.scores.impression?.score ?? null;
-  const mark = (key: string) =>
-    impression[key] === 'yes' ? 'YES' : impression[key] === 'partly' ? 'PARTLY' : 'NO';
+  const impression = impressionData(report);
+  const verboseRules = options.verbose
+    ? [
+        pc.bold('RULE RESULTS'),
+        '',
+        ...Object.values(report.scores).flatMap((score) =>
+          score
+            ? score.rules.map(
+                (rule) =>
+                  `${rule.status.toUpperCase().padEnd(15)} ${rule.id.padEnd(42)} ${rule.earned}/${rule.weight}  ${rule.explanation}`,
+              )
+            : [],
+        ),
+        '',
+      ]
+    : [];
+
   return (
     [
       pc.bold('readme-fit'),
@@ -72,16 +162,17 @@ export function renderTerminal(report: AnalysisReport): string {
         : ['No high-priority findings.', '']),
       pc.bold('FIRST 5 SECONDS'),
       '',
-      `Understand WHAT it is?    ${mark('what')}`,
-      `Understand WHY I need it? ${mark('why')}`,
-      `See it working?           ${mark('proof')}`,
-      `Know how to try it?       ${mark('try')}`,
-      `Trust the project?        ${mark('trust')}`,
+      `Understand WHAT it is?    ${impressionMark(impression, 'what')}`,
+      `Understand WHY I need it? ${impressionMark(impression, 'why')}`,
+      `See it working?           ${impressionMark(impression, 'proof')}`,
+      `Know how to try it?       ${impressionMark(impression, 'try')}`,
+      `Trust the project?        ${impressionMark(impression, 'trust')}`,
       '',
-      scoreLine('Score', impressionScore),
+      scoreLine('Score', report.scores.impression?.score ?? null),
       '',
       'First-impression score is a heuristic based on README structure and content, not actual user testing.',
       '',
+      ...verboseRules,
       pc.bold('VERIFICATION COVERAGE'),
       '',
       ...report.coverage.verified.map((item) => `✓ ${item}`),

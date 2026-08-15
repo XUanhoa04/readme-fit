@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { analyzeRepository } from './core/analysis.js';
-import { explainRule } from './rules/registry.js';
+import { explainRule, getRules } from './rules/registry.js';
 import { renderJson } from './reporters/json.js';
-import { renderTerminal } from './reporters/terminal.js';
+import {
+  renderImpressionJson,
+  renderImpressionTerminal,
+  renderTerminal,
+} from './reporters/terminal.js';
 import { GitHubProfileProvider } from './profile/github/github-provider.js';
 import { analyzeProfile } from './profile/analyzer/analyze-profile.js';
 import { renderProfileTerminal } from './profile/reporter.js';
@@ -20,20 +24,40 @@ program
   .argument('[path]', 'repository path', '.')
   .option('--json', 'emit machine-readable JSON')
   .option('--format <format>', 'output format: text or json', 'text')
-  .option('--impression', 'include the first-impression summary')
+  .option('--impression', 'show only the first-impression report')
+  .option('--verbose', 'show every applicable rule result')
+  .option('--quiet', 'show only the overall score and critical findings')
   .option('--fail-on <level>', 'exit non-zero on a category or severity')
   .action(
     async (
       repositoryPath: string,
-      options: { json?: boolean; format: string; impression?: boolean; failOn?: string },
+      options: {
+        json?: boolean;
+        format: string;
+        impression?: boolean;
+        verbose?: boolean;
+        quiet?: boolean;
+        failOn?: string;
+      },
     ) => {
       try {
         const report = await analyzeRepository(repositoryPath);
         const format = options.json ? 'json' : options.format;
         if (!['text', 'json'].includes(format))
           throw new Error(`Unknown format: ${format}`);
+        if (options.verbose && options.quiet)
+          throw new Error('--verbose and --quiet cannot be used together.');
         process.stdout.write(
-          format === 'json' ? renderJson(report) : renderTerminal(report),
+          options.impression
+            ? format === 'json'
+              ? renderImpressionJson(report)
+              : renderImpressionTerminal(report)
+            : format === 'json'
+              ? renderJson(report)
+              : renderTerminal(report, {
+                  verbose: Boolean(options.verbose),
+                  quiet: Boolean(options.quiet),
+                }),
         );
         if (options.failOn) {
           const severities = ['critical', 'high', 'medium', 'low', 'info'];
@@ -62,11 +86,24 @@ program
 
 program
   .command('impression')
-  .description('Show the heuristic first-impression audit')
+  .description('Show only the heuristic first-impression audit')
   .argument('[path]', 'repository path', '.')
-  .action(async (repositoryPath: string) => {
-    const report = await analyzeRepository(repositoryPath);
-    process.stdout.write(renderTerminal(report));
+  .option('--json', 'emit machine-readable JSON')
+  .option('--format <format>', 'output format: text or json', 'text')
+  .action(async (repositoryPath: string, options: { json?: boolean; format: string }) => {
+    try {
+      const report = await analyzeRepository(repositoryPath);
+      const format = options.json ? 'json' : options.format;
+      if (!['text', 'json'].includes(format)) throw new Error(`Unknown format: ${format}`);
+      process.stdout.write(
+        format === 'json' ? renderImpressionJson(report) : renderImpressionTerminal(report),
+      );
+    } catch (error) {
+      process.stderr.write(
+        `readme-fit impression: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 2;
+    }
   });
 
 program
@@ -105,6 +142,19 @@ program
       );
       process.exitCode = 2;
     }
+  });
+
+program
+  .command('list-rules')
+  .description('List rule IDs, categories, and explanations')
+  .action(() => {
+    process.stdout.write(
+      `${getRules()
+        .map(
+          (rule) => `${rule.id.padEnd(42)} ${rule.category.padEnd(14)} ${rule.description}`,
+        )
+        .join('\n')}\n`,
+    );
   });
 
 await program.parseAsync();
