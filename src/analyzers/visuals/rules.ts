@@ -14,7 +14,7 @@ function demos(readme: ReadmeDocument): Demo[] {
   const found: Demo[] = readme.images
     .filter(
       (image) =>
-        !/shields\.io|badge|badgen|github\.com\/.*actions\/workflows/i.test(
+        !/shields\.io|badge|badgen|github\.com\/.*actions\/workflows|logo|banner|avatar|icon/i.test(
           `${image.url} ${image.text}`,
         ),
     )

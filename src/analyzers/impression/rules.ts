@@ -1,7 +1,24 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
-import { runnableCommands } from '../onboarding/facts.js';
+import { firstSuccessCommand } from '../onboarding/facts.js';
+
+export function outcomeSignals(opening: string): string[] {
+  const prose = opening
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  const patterns = [
+    /\b(?:helps?|lets?|enables?)\s+(?:you|teams?|developers?|users?|maintainers?)\s+\w+/i,
+    /\bso\s+(?:you|teams?|developers?|users?|maintainers?)\s+can\b/i,
+    /\bwithout\s+(?:having|needing|writing|running|manually|the)\b/i,
+    /\b(?:reduce|prevent|avoid|save|eliminate|catch|detect|surface|finds?)\s+(?:\w+\s+){0,2}(?:drift|errors?|issues?|risks?|time|manual work|unused code|vulnerabilit\w*)\b/i,
+    /\b(?:turn|transform)\s+[^.!?]{2,80}\s+into\b/i,
+    /\binstead of\b/i,
+    /\bbefore\s+[^.!?]{2,60}\s+breaks?\b/i,
+  ];
+  return patterns.flatMap((pattern) => prose.match(pattern)?.[0] ?? []);
+}
 
 function metricRule(input: {
   id: string;
@@ -95,15 +112,16 @@ export const impressionRules: Rule[] = [
       'Add one concrete outcome, pain point, or before/after statement near the hero.',
     test: (raw) => {
       const opening = raw.split(/\r?\n/).slice(0, 30).join(' ');
-      const signals =
-        /(?:so you can|without|instead of|helps? |save|faster|easier|find|prevent|because|why|problem|outcome)/i.test(
-          opening,
-        );
+      const signals = outcomeSignals(opening);
+      const audience =
+        /\b(?:for|built for)\s+(?:teams?|developers?|users?|maintainers?)/i.test(opening);
       return {
-        status: signals ? 'yes' : opening.split(/\s+/).length > 20 ? 'partly' : 'no',
-        evidence: signals
-          ? 'An outcome or problem signal appears in the opening.'
-          : 'No explicit outcome, pain point, or reason-to-care signal was detected in the opening.',
+        status: signals.length ? 'yes' : audience ? 'partly' : 'no',
+        evidence: signals.length
+          ? `A concrete outcome or pain-point pattern appears in the opening: "${signals[0]}".`
+          : audience
+            ? 'A target audience is visible, but no concrete outcome or pain-point pattern was detected.'
+            : 'No explicit outcome, pain point, or reason-to-care signal was detected in the opening.',
       };
     },
   }),
@@ -114,7 +132,9 @@ export const impressionRules: Rule[] = [
       'Place the smallest representative screenshot, terminal output, or demo near the first use path.',
     test: (_raw, { readme }) => {
       const earlyImage = readme.images.some(
-        (image) => image.line <= 40 && !/badge|shield/i.test(image.url),
+        (image) =>
+          image.line <= 40 &&
+          !/badge|shield|logo|banner|avatar|icon/i.test(`${image.url} ${image.text}`),
       );
       const earlyOutput = readme.codeBlocks.some(
         (block) =>
@@ -139,12 +159,12 @@ export const impressionRules: Rule[] = [
     title: 'Visitors cannot quickly tell how to try it',
     recommendation: 'Put the minimal install and first-run commands near the hero.',
     test: (_raw, { readme }) => {
-      const first = runnableCommands(readme)[0];
+      const first = firstSuccessCommand(readme);
       return {
         status: first && first.line <= 40 ? 'yes' : first ? 'partly' : 'no',
         evidence: first
-          ? `First runnable command appears at line ${first.line}.`
-          : 'No runnable command was detected.',
+          ? `First-success command appears at line ${first.line}.`
+          : 'No runnable first-success command was detected.',
       };
     },
   }),

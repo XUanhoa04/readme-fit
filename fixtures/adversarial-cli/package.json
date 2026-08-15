@@ -1,0 +1,8 @@
+{
+  "name": "adversarial-cli",
+  "version": "1.0.0",
+  "bin": {
+    "adversarial": "dist/cli.js"
+  },
+  "license": "MIT"
+}

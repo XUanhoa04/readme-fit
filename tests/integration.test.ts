@@ -40,6 +40,20 @@ describe('repository analysis', () => {
     );
   });
 
+  it('does not let empty headings and a logo game completeness or visual proof', async () => {
+    const report = await analyzeRepository(fixture('adversarial-cli'));
+    expect(report.scores.completeness?.score).toBe(0);
+    expect(report.findings.map((finding) => finding.id)).toEqual(
+      expect.arrayContaining([
+        'onboarding.quick-start.present',
+        'completeness.installation.present',
+        'completeness.quick-start.present',
+        'visual.demo.present',
+      ]),
+    );
+    expect(report.facts.demos).toEqual([]);
+  });
+
   it('keeps the stable JSON schema explicit', async () => {
     const report = await analyzeRepository(fixture('good-cli'));
     expect({

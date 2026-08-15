@@ -60,46 +60,52 @@ export const trustSignalsRule: Rule = {
       project.primaryType,
       config.scoring.preset,
     );
+    const expected = config.scoring.preset === 'oss' ? Object.keys(signals).length : 2;
+    const passes = count >= expected;
+    const missingSignals = Object.entries(signals)
+      .filter(([, present]) => !present)
+      .map(([name]) => name);
     return {
-      score:
-        count >= 2
-          ? passScore(
-              'trust.signals.present',
-              weight,
-              `${count} meaningful trust signals found.`,
-            )
-          : failScore(
-              'trust.signals.present',
-              weight,
-              Math.round((weight * count) / 2),
-              `Only ${count} meaningful trust signal(s) found.`,
-            ),
-      findings:
-        count >= 2
-          ? []
-          : [
-              finding({
-                id: 'trust.signals.present',
-                category: 'trust',
-                severity: 'low',
-                priority: 'P3',
-                confidence: 'medium',
-                deterministic: false,
-                title: 'Limited visible maintenance signals',
-                observation: `The static scan found ${count} of these signals: tests, CI, contributing guide, security policy, changelog.`,
-                impact:
-                  'Visitors have less public evidence about maintenance and contribution readiness.',
-                recommendation:
-                  'Add only signals that reflect real project practice; tests and CI are usually the strongest first additions.',
-                evidence: [
-                  {
-                    type: 'trust-signals',
-                    message: JSON.stringify(signals),
-                    value: signals,
-                  },
-                ],
-              }),
-            ],
+      score: passes
+        ? passScore(
+            'trust.signals.present',
+            weight,
+            `${count} meaningful trust signals found.`,
+          )
+        : failScore(
+            'trust.signals.present',
+            weight,
+            Math.round((weight * count) / expected),
+            `${count} of ${expected} trust signals required by the ${config.scoring.preset} preset were found.`,
+          ),
+      findings: passes
+        ? []
+        : [
+            finding({
+              id: 'trust.signals.present',
+              category: 'trust',
+              severity: 'low',
+              priority: 'P3',
+              confidence: 'medium',
+              deterministic: false,
+              title:
+                config.scoring.preset === 'oss'
+                  ? 'OSS maintenance evidence is incomplete'
+                  : 'Limited visible maintenance signals',
+              observation: `The ${config.scoring.preset} preset found ${count} of ${expected} expected signals. Missing: ${missingSignals.join(', ') || 'none'}.`,
+              impact:
+                'Visitors have less public evidence about maintenance and contribution readiness.',
+              recommendation:
+                'Add only signals that reflect real project practice; tests and CI are usually the strongest first additions.',
+              evidence: [
+                {
+                  type: 'trust-signals',
+                  message: JSON.stringify(signals),
+                  value: signals,
+                },
+              ],
+            }),
+          ],
       facts: { trustSignals: signals },
     };
   },

@@ -1,7 +1,12 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
-import { hasExpectedOutput, runnableCommands, wordsBefore } from './facts.js';
+import {
+  firstSuccessCommand,
+  hasExpectedOutput,
+  runnableCommands,
+  wordsBefore,
+} from './facts.js';
 
 const ONBOARDING_TYPES = new Set([
   'cli',
@@ -25,7 +30,16 @@ export const quickStartRule: Rule = {
     const heading = readme.headings.find((item) =>
       /quick\s*start|get(?:ting)? started|usage|install/i.test(item.text),
     );
-    const passes = commands.length > 0 && Boolean(heading);
+    const usageCommands = commands.filter((command) => command.kind === 'usage');
+    const codeExample = readme.codeBlocks.find((block) =>
+      /^(?:js|jsx|ts|tsx|javascript|typescript|py|python|rs|rust|go|java)$/i.test(
+        block.language ?? '',
+      ),
+    );
+    const successStep = ['library', 'sdk'].includes(project.primaryType)
+      ? usageCommands.length > 0 || Boolean(codeExample)
+      : usageCommands.length > 0;
+    const passes = successStep && Boolean(heading);
     const weight = ruleWeight(
       'onboarding.quick-start.present',
       project.primaryType,
@@ -41,7 +55,7 @@ export const quickStartRule: Rule = {
         : failScore(
             'onboarding.quick-start.present',
             weight,
-            commands.length ? Math.round(weight * 0.4) : 0,
+            successStep ? Math.round(weight * 0.4) : 0,
             'A complete quick-start path was not found.',
           ),
       findings: passes
@@ -53,9 +67,9 @@ export const quickStartRule: Rule = {
               severity: 'high',
               priority: 'P1',
               title: 'No complete Quick Start',
-              observation: commands.length
-                ? 'A runnable command exists, but no clearly labeled Quick Start, Getting Started, Usage, or Installation section was found.'
-                : 'No runnable first-success command was found in a fenced code block.',
+              observation: successStep
+                ? 'A first-success step exists, but no clearly labeled Quick Start, Getting Started, Usage, or Installation section was found.'
+                : 'Installation may be documented, but no runnable usage command or relevant code example shows first success.',
               impact:
                 'A new user must assemble the onboarding path instead of following one minimal route to success.',
               recommendation:
@@ -76,7 +90,12 @@ export const quickStartRule: Rule = {
               ],
             }),
           ],
-      facts: { runnableCommands: commands, quickStartHeading: heading ?? null },
+      facts: {
+        runnableCommands: commands,
+        installCommands: commands.filter((command) => command.kind === 'install'),
+        usageCommands,
+        quickStartHeading: heading ?? null,
+      },
     };
   },
 };
@@ -86,9 +105,13 @@ export const firstCommandRule: Rule = {
   category: 'onboarding',
   description:
     'Measures the line and approximate prose volume before the first runnable command using project-aware concern levels.',
-  applies: ({ project }) => ONBOARDING_TYPES.has(project.primaryType) || project.hasCli,
+  applies: ({ project }) =>
+    project.hasCli ||
+    ['cli', 'developer-tool', 'api', 'github-action', 'ai-model', 'ai-agent'].includes(
+      project.primaryType,
+    ),
   evaluate: ({ readme, project, config }) => {
-    const first = runnableCommands(readme)[0];
+    const first = firstSuccessCommand(readme);
     const weight = ruleWeight(
       'onboarding.first-command.early',
       project.primaryType,
@@ -100,10 +123,10 @@ export const firstCommandRule: Rule = {
           'onboarding.first-command.early',
           weight,
           0,
-          'No runnable command found.',
+          'No runnable first-success command found.',
         ),
         findings: [],
-        facts: { firstRunnableCommand: null },
+        facts: { firstSuccessCommand: null },
       };
     const before = wordsBefore(readme, first.line);
     const concern = project.primaryType === 'cli' ? before > 180 : before > 300;
@@ -113,12 +136,12 @@ export const firstCommandRule: Rule = {
             'onboarding.first-command.early',
             weight,
             Math.round(weight * 0.4),
-            `${before} words precede the first runnable command.`,
+            `${before} words precede the first-success command.`,
           )
         : passScore(
             'onboarding.first-command.early',
             weight,
-            'The first runnable command appears early enough for this project type.',
+            'The first-success command appears early enough for this project type.',
           ),
       findings: concern
         ? [
@@ -129,15 +152,15 @@ export const firstCommandRule: Rule = {
               priority: 'P1',
               confidence: 'medium',
               deterministic: false,
-              title: 'First runnable command appears late',
+              title: 'First-success command appears late',
               source: { path: readme.path, line: first.line },
-              observation: `The first runnable command, \`${first.command}\`, appears at line ${first.line} after approximately ${before} words.`,
+              observation: `The first usage command, \`${first.command}\`, appears at line ${first.line} after approximately ${before} words. Installation commands are measured separately.`,
               impact: `Visitors must absorb substantial context before trying this ${project.primaryType} project.`,
               recommendation:
                 'Move the smallest runnable path near the hero; retain deeper explanation later.',
               evidence: [
                 {
-                  type: 'first-runnable-command',
+                  type: 'first-success-command',
                   message: first.command,
                   path: readme.path,
                   line: first.line,
@@ -153,7 +176,7 @@ export const firstCommandRule: Rule = {
           ]
         : [],
       facts: {
-        firstRunnableCommand: {
+        firstSuccessCommand: {
           command: first.command,
           line: first.line,
           wordsBefore: before,
@@ -171,7 +194,7 @@ export const expectedOutputRule: Rule = {
   applies: ({ project }) =>
     project.hasCli || ['cli', 'developer-tool'].includes(project.primaryType),
   evaluate: ({ readme, project, config }) => {
-    const commands = runnableCommands(readme);
+    const commands = runnableCommands(readme).filter((command) => command.kind === 'usage');
     if (!commands.length)
       return {
         score: naScore(

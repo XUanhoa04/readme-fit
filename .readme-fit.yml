@@ -18,4 +18,4 @@ ignore:
     - fixtures/**
 
 scoring:
-  preset: balanced
+  preset: oss
