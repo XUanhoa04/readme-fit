@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises';
+import { access, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, passScore } from '../../rules/helpers.js';
@@ -16,6 +16,11 @@ function cleanUrl(url: string): string {
   }
 }
 
+function isInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 export const relativeLinkRule: Rule = {
   id: 'correctness.link.exists',
   category: 'correctness',
@@ -31,17 +36,19 @@ export const relativeLinkRule: Rule = {
     const candidates = readme.links.filter((link) => isRelative(link.url));
     const broken = [];
     const readmeDirectory = path.dirname(path.join(repository.root, readme.path));
+    const canonicalRoot = await realpath(repository.root);
     for (const link of candidates) {
       const target = path.resolve(readmeDirectory, cleanUrl(link.url));
-      if (
-        !target.startsWith(`${repository.root}${path.sep}`) &&
-        target !== repository.root
-      ) {
+      if (!isInside(repository.root, target)) {
         broken.push({ ...link, reason: 'target escapes repository root' });
         continue;
       }
       try {
         await access(target);
+        const canonicalTarget = await realpath(target);
+        if (!isInside(canonicalRoot, canonicalTarget)) {
+          broken.push({ ...link, reason: 'symlink target escapes repository root' });
+        }
       } catch {
         broken.push({ ...link, reason: 'target does not exist' });
       }

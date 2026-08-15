@@ -1,27 +1,50 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { loadConfig, resolveReadme } from './config/config.js';
 import { parseReadme } from './markdown/parser.js';
-import { inspectRepository } from './repository/inspector.js';
+import {
+  inspectRepository,
+  MAX_INSPECTED_TEXT_BYTES,
+} from './repository/inspector.js';
 import type { AnalysisReport, CategoryScore, ProjectProfile } from '../models/index.js';
 import { getRules } from '../rules/registry.js';
 import { classifyProject } from '../classifiers/project-type/classifier.js';
 import '../rules/builtin.js';
 
-export async function analyzeRepository(rootInput: string): Promise<AnalysisReport> {
+export interface AnalysisOptions {
+  checkLinks?: boolean;
+}
+
+export async function analyzeRepository(
+  rootInput: string,
+  options: AnalysisOptions = {},
+): Promise<AnalysisReport> {
   const root = path.resolve(rootInput);
   const config = await loadConfig(root, new Set(getRules().map((rule) => rule.id)));
   const repository = await inspectRepository(root, config.ignore.paths);
   const readmePath = resolveReadme(root, config);
   let raw: string;
   try {
+    const metadata = await stat(readmePath);
+    if (metadata.size > MAX_INSPECTED_TEXT_BYTES) {
+      throw new Error(
+        `${path.relative(root, readmePath)} exceeds the ${MAX_INSPECTED_TEXT_BYTES}-byte static inspection limit.`,
+      );
+    }
     raw = await readFile(readmePath, 'utf8');
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && /static inspection limit/.test(error.message)) throw error;
     throw new Error(`README not found: ${path.relative(root, readmePath)}`);
   }
   const readme = parseReadme(raw, path.relative(root, readmePath).replaceAll('\\', '/'));
   const project: ProjectProfile = classifyProject(repository, config.project.type);
-  const context = { repository, readme, project, config };
+  const context = {
+    repository,
+    readme,
+    project,
+    config,
+    options: { checkLinks: Boolean(options.checkLinks) },
+  };
   const findings = [];
   const scores: AnalysisReport['scores'] = {};
   const facts: Record<string, unknown> = { fileCount: repository.files.length };
@@ -87,17 +110,20 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
       verified: [
         'README structure parsed with a Markdown AST',
         'repository metadata inspected statically',
+        ...(options.checkLinks ? ['external URL responses checked'] : []),
       ],
       inferred: ['project type'],
       notChecked: [
-        'external URL health',
+        ...(!options.checkLinks ? ['external URL health'] : []),
         'commands were not executed',
         'demo/video content',
       ],
     },
     limitations: [
       'Static analysis does not prove that documented commands succeed at runtime.',
-      'External URLs and linked media content are not fetched by default.',
+      options.checkLinks
+        ? 'External URL responses were checked, but linked content quality was not analyzed.'
+        : 'External URLs and linked media content are not fetched by default.',
     ],
   };
 }

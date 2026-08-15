@@ -25,6 +25,7 @@ program
   .option('--json', 'emit machine-readable JSON')
   .option('--format <format>', 'output format: text or json', 'text')
   .option('--impression', 'show only the first-impression report')
+  .option('--check-links', 'check external HTTP links with bounded network requests')
   .option('--verbose', 'show every applicable rule result')
   .option('--quiet', 'show only the overall score and critical findings')
   .option('--fail-on <level>', 'exit non-zero on a category or severity')
@@ -35,13 +36,16 @@ program
         json?: boolean;
         format: string;
         impression?: boolean;
+        checkLinks?: boolean;
         verbose?: boolean;
         quiet?: boolean;
         failOn?: string;
       },
     ) => {
       try {
-        const report = await analyzeRepository(repositoryPath);
+        const report = await analyzeRepository(repositoryPath, {
+          checkLinks: Boolean(options.checkLinks),
+        });
         const format = options.json ? 'json' : options.format;
         if (!['text', 'json'].includes(format))
           throw new Error(`Unknown format: ${format}`);

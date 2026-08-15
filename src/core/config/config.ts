@@ -79,7 +79,11 @@ function stringArray(value: unknown, location: string): string[] {
 }
 
 function display(value: unknown): string {
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
     return String(value);
   }
   return JSON.stringify(value);

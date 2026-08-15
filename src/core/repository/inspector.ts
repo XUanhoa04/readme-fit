@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import ignore from 'ignore';
 import type { RepositorySnapshot } from '../../models/index.js';
@@ -17,10 +17,20 @@ const DEFAULT_IGNORES = [
   'venv/',
 ];
 
+export const MAX_INSPECTED_TEXT_BYTES = 1_048_576;
+
 async function readOptional(root: string, relative: string): Promise<string | undefined> {
   try {
-    return await readFile(path.join(root, relative), 'utf8');
-  } catch {
+    const target = path.join(root, relative);
+    const metadata = await stat(target);
+    if (metadata.size > MAX_INSPECTED_TEXT_BYTES) {
+      throw new Error(
+        `${relative} exceeds the ${MAX_INSPECTED_TEXT_BYTES}-byte static inspection limit.`,
+      );
+    }
+    return await readFile(target, 'utf8');
+  } catch (error) {
+    if (error instanceof Error && /static inspection limit/.test(error.message)) throw error;
     return undefined;
   }
 }

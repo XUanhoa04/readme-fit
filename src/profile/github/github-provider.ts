@@ -30,8 +30,14 @@ interface GitHubReadmeResponse {
   encoding?: string;
 }
 
+const MAX_PROFILE_README_BYTES = 1_048_576;
+const MAX_REPOSITORY_PAGES = 10;
+
 export class GitHubProfileProvider implements ProfileProvider {
-  constructor(private readonly token = process.env.GITHUB_TOKEN) {}
+  constructor(
+    private readonly token = process.env.GITHUB_TOKEN,
+    private readonly fetcher: typeof fetch = fetch,
+  ) {}
 
   private async request<T>(
     url: string,
@@ -43,7 +49,10 @@ export class GitHubProfileProvider implements ProfileProvider {
       'X-GitHub-Api-Version': '2022-11-28',
     };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
-    const response = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
+    const response = await this.fetcher(url, {
+      headers,
+      signal: AbortSignal.timeout(10_000),
+    });
     if (!response.ok) {
       if (response.status === 404)
         throw new Error('GitHub user or profile README not found.');
@@ -60,20 +69,38 @@ export class GitHubProfileProvider implements ProfileProvider {
         `https://api.github.com/repos/${encodeURIComponent(username)}/${encodeURIComponent(username)}/readme`,
       );
       if (response.encoding !== 'base64' || !response.content) return null;
-      return Buffer.from(response.content.replaceAll('\n', ''), 'base64').toString('utf8');
+      const encoded = response.content.replaceAll('\n', '');
+      if (encoded.length > Math.ceil((MAX_PROFILE_README_BYTES * 4) / 3) + 4) {
+        throw new Error('GitHub Profile README exceeds the 1 MiB inspection limit.');
+      }
+      const decoded = Buffer.from(encoded, 'base64');
+      if (decoded.byteLength > MAX_PROFILE_README_BYTES) {
+        throw new Error('GitHub Profile README exceeds the 1 MiB inspection limit.');
+      }
+      return decoded.toString('utf8');
     } catch (error) {
       if (error instanceof Error && /not found/i.test(error.message)) return null;
       throw error;
     }
   }
 
+  private async repositories(username: string): Promise<GitHubRepoResponse[]> {
+    const repositories: GitHubRepoResponse[] = [];
+    for (let page = 1; page <= MAX_REPOSITORY_PAGES; page += 1) {
+      const batch = await this.request<GitHubRepoResponse[]>(
+        `https://api.github.com/users/${encodeURIComponent(username)}/repos?per_page=100&sort=updated&page=${page}`,
+      );
+      repositories.push(...batch);
+      if (batch.length < 100) break;
+    }
+    return repositories;
+  }
+
   async getProfile(username: string): Promise<PublicProfileData> {
     const encoded = encodeURIComponent(username);
     const [user, repositories, profileReadme] = await Promise.all([
       this.request<GitHubUserResponse>(`https://api.github.com/users/${encoded}`),
-      this.request<GitHubRepoResponse[]>(
-        `https://api.github.com/users/${encoded}/repos?per_page=100&sort=updated`,
-      ),
+      this.repositories(username),
       this.profileReadme(username),
     ]);
     const mapped: PublicRepository[] = repositories.map((repository) => ({

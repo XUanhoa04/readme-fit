@@ -13,6 +13,9 @@ export interface AnalysisContext {
   readme: ReadmeDocument;
   project: ProjectProfile;
   config: ReadmeFitConfig;
+  options: {
+    checkLinks: boolean;
+  };
 }
 
 export interface RuleResult {

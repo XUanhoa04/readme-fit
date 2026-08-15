@@ -5,6 +5,7 @@ export type ScoringPreset = 'minimal' | 'balanced' | 'oss' | 'portfolio';
 const BASE_WEIGHTS: Record<string, number> = {
   'correctness.command.exists': 25,
   'correctness.link.exists': 25,
+  'correctness.external-link.reachable': 10,
   'correctness.package-name.matches': 20,
   'correctness.runtime.matches': 15,
   'correctness.license.matches': 15,
