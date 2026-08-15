@@ -75,7 +75,9 @@ export async function checkExternalLinks(
     }
   }
   await Promise.all(
-    Array.from({ length: Math.min(Math.max(1, concurrency), unique.length) }, () => worker()),
+    Array.from({ length: Math.min(Math.max(1, concurrency), unique.length) }, () =>
+      worker(),
+    ),
   );
   return results;
 }

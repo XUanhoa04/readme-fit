@@ -31,8 +31,7 @@ export const metadataParseRule: Rule = {
           title: 'Repository metadata is not parseable',
           source: { path: issue.path },
           observation: issue.message,
-          impact:
-            'README claims depending on this metadata cannot be verified reliably.',
+          impact: 'README claims depending on this metadata cannot be verified reliably.',
           recommendation:
             'Repair the metadata syntax, then rerun readme-fit for complete verification.',
           evidence: [

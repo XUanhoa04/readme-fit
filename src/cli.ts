@@ -13,12 +13,13 @@ import {
 import { GitHubProfileProvider } from './profile/github/github-provider.js';
 import { analyzeProfile } from './profile/analyzer/analyze-profile.js';
 import { renderProfileTerminal } from './profile/reporter.js';
+import { VERSION } from './version.js';
 
 const program = new Command();
 program
   .name('readme-fit')
   .description('Does your README fit what you built?')
-  .version('0.1.0');
+  .version(VERSION);
 
 program
   .command('scan')
@@ -87,11 +88,10 @@ program
           } else {
             const hasFailure = report.baseline
               ? candidateFindings.some((finding) => finding.category === options.failOn)
-              : report.scores[
-                  options.failOn as keyof typeof report.scores
-                ]?.rules.some((rule) => rule.status === 'fail');
-            if (hasFailure)
-              process.exitCode = 1;
+              : report.scores[options.failOn as keyof typeof report.scores]?.rules.some(
+                  (rule) => rule.status === 'fail',
+                );
+            if (hasFailure) process.exitCode = 1;
           }
         }
       } catch (error) {

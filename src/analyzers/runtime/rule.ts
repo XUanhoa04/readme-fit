@@ -57,8 +57,7 @@ function pythonComparison(
   repository: Parameters<Rule['evaluate']>[0]['repository'],
   raw: string,
 ): RuntimeComparison | undefined {
-  const readmeMatch =
-    /Python\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)(?:\.(\d+))?/i.exec(raw);
+  const readmeMatch = /Python\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)(?:\.(\d+))?/i.exec(raw);
   const pyprojectConstraint = pythonRuntimeConstraint(repository.pyproject);
   const declared = pyprojectConstraint ?? repository.pythonVersion;
   if (!readmeMatch?.[1] || !declared) return undefined;
@@ -85,10 +84,10 @@ export const runtimeRule: Rule = {
   applies: ({ repository }) =>
     Boolean(
       repository.packageJson ||
-        repository.nvmrc ||
-        repository.nodeVersion ||
-        repository.pyproject ||
-        repository.pythonVersion,
+      repository.nvmrc ||
+      repository.nodeVersion ||
+      repository.pyproject ||
+      repository.pythonVersion,
     ),
   evaluate: ({ repository, readme, project, config }) => {
     const weight = ruleWeight(

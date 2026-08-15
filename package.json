@@ -1,6 +1,6 @@
 {
   "name": "readme-fit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Repository-aware README quality auditor grounded in evidence.",
   "type": "module",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "prepack": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "demo": "npm run build && node dist/cli.js scan fixtures/stale-cli",
@@ -39,7 +40,8 @@
     "documentation",
     "linter",
     "developer-tools",
-    "static-analysis"
+    "static-analysis",
+    "ai-agent"
   ],
   "license": "MIT",
   "repository": {

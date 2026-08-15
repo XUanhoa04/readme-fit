@@ -1,5 +1,6 @@
 import type { PublicProfileData, PublicRepository } from '../../models/index.js';
 import type { ProfileProvider } from '../provider.js';
+import { VERSION } from '../../version.js';
 
 interface GitHubUserResponse {
   login: string;
@@ -45,7 +46,7 @@ export class GitHubProfileProvider implements ProfileProvider {
   ): Promise<T> {
     const headers: Record<string, string> = {
       Accept: accept,
-      'User-Agent': 'readme-fit/0.1.0',
+      'User-Agent': `readme-fit/${VERSION}`,
       'X-GitHub-Api-Version': '2022-11-28',
     };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;

@@ -13,3 +13,4 @@ export {
 } from './core/baseline.js';
 export type * from './models/index.js';
 export type { ProfileProvider } from './profile/provider.js';
+export { VERSION } from './version.js';

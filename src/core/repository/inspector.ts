@@ -30,7 +30,8 @@ async function readOptional(root: string, relative: string): Promise<string | un
     }
     return await readFile(target, 'utf8');
   } catch (error) {
-    if (error instanceof Error && /static inspection limit/.test(error.message)) throw error;
+    if (error instanceof Error && /static inspection limit/.test(error.message))
+      throw error;
     return undefined;
   }
 }

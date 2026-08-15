@@ -2,10 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { loadConfig, resolveReadme } from './config/config.js';
 import { parseReadme } from './markdown/parser.js';
-import {
-  inspectRepository,
-  MAX_INSPECTED_TEXT_BYTES,
-} from './repository/inspector.js';
+import { inspectRepository, MAX_INSPECTED_TEXT_BYTES } from './repository/inspector.js';
 import type { AnalysisReport, CategoryScore, ProjectProfile } from '../models/index.js';
 import { getRules } from '../rules/registry.js';
 import { classifyProject } from '../classifiers/project-type/classifier.js';
@@ -33,7 +30,8 @@ export async function analyzeRepository(
     }
     raw = await readFile(readmePath, 'utf8');
   } catch (error) {
-    if (error instanceof Error && /static inspection limit/.test(error.message)) throw error;
+    if (error instanceof Error && /static inspection limit/.test(error.message))
+      throw error;
     throw new Error(`README not found: ${path.relative(root, readmePath)}`);
   }
   const readme = parseReadme(raw, path.relative(root, readmePath).replaceAll('\\', '/'));
