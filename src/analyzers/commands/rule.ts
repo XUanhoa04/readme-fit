@@ -26,8 +26,12 @@ export const commandExistsRule: Rule = {
   description:
     'Checks documented npm, pnpm, and Yarn script commands against package.json without executing them.',
   applies: ({ repository }) => Boolean(repository.packageJson),
-  evaluate: ({ repository, readme, project }) => {
-    const weight = ruleWeight('correctness.command.exists', project.primaryType);
+  evaluate: ({ repository, readme, project, config }) => {
+    const weight = ruleWeight(
+      'correctness.command.exists',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const scriptsValue = repository.packageJson?.scripts;
     const scripts =
       scriptsValue && typeof scriptsValue === 'object'

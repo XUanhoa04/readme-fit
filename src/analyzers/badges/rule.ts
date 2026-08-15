@@ -8,7 +8,7 @@ export const badgeRule: Rule = {
   description:
     'Counts badge-like images, placement, likely duplicates, and badge walls without rewarding badge volume.',
   applies: () => true,
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const badges = readme.images.filter((image) =>
       /shields\.io|badge|badgen|github\.com\/.*actions\/workflows/i.test(image.url),
     );
@@ -20,7 +20,11 @@ export const badgeRule: Rule = {
       (value, index) => identities.indexOf(value) !== index,
     );
     const wall = early.length > 8;
-    const weight = ruleWeight('trust.badges.signal-to-noise', project.primaryType);
+    const weight = ruleWeight(
+      'trust.badges.signal-to-noise',
+      project.primaryType,
+      config.scoring.preset,
+    );
     return {
       score:
         wall || duplicates.length

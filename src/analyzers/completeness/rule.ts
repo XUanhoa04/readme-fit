@@ -69,12 +69,16 @@ export const completenessRule: Rule = {
   category: 'completeness',
   description: 'Checks only high-value sections required by the inferred project type.',
   applies: ({ project }) => Boolean(REQUIRED[project.primaryType]?.length),
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const required = REQUIRED[project.primaryType] ?? [];
     const missing = required.filter(
       (item) => !readme.headings.some((heading) => item.pattern.test(heading.text)),
     );
-    const weight = ruleWeight('completeness.project-type', project.primaryType);
+    const weight = ruleWeight(
+      'completeness.project-type',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const earned = Math.round(
       (weight * (required.length - missing.length)) / Math.max(required.length, 1),
     );

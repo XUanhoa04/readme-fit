@@ -10,7 +10,7 @@ import '../rules/builtin.js';
 
 export async function analyzeRepository(rootInput: string): Promise<AnalysisReport> {
   const root = path.resolve(rootInput);
-  const config = await loadConfig(root);
+  const config = await loadConfig(root, new Set(getRules().map((rule) => rule.id)));
   const repository = await inspectRepository(root, config.ignore.paths);
   const readmePath = resolveReadme(root, config);
   let raw: string;

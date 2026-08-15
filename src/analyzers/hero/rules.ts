@@ -15,8 +15,12 @@ export const heroExplanationRule: Rule = {
   description:
     'Checks whether the hero contains a concise prose explanation before detailed sections.',
   applies: () => true,
-  evaluate: ({ readme, project }) => {
-    const weight = ruleWeight('hero.explanation.present', project.primaryType);
+  evaluate: ({ readme, project, config }) => {
+    const weight = ruleWeight(
+      'hero.explanation.present',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const firstH2 = readme.headings.find((heading) => heading.depth === 2)?.line;
     const hero = heroText(readme.raw, firstH2);
     const prose = hero

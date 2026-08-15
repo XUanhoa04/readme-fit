@@ -20,13 +20,17 @@ export const quickStartRule: Rule = {
   description:
     'Checks for a runnable command and a Quick Start, Getting Started, Usage, or Installation path.',
   applies: ({ project }) => ONBOARDING_TYPES.has(project.primaryType) || project.hasCli,
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const commands = runnableCommands(readme);
     const heading = readme.headings.find((item) =>
       /quick\s*start|get(?:ting)? started|usage|install/i.test(item.text),
     );
     const passes = commands.length > 0 && Boolean(heading);
-    const weight = ruleWeight('onboarding.quick-start.present', project.primaryType);
+    const weight = ruleWeight(
+      'onboarding.quick-start.present',
+      project.primaryType,
+      config.scoring.preset,
+    );
     return {
       score: passes
         ? passScore(
@@ -83,9 +87,13 @@ export const firstCommandRule: Rule = {
   description:
     'Measures the line and approximate prose volume before the first runnable command using project-aware concern levels.',
   applies: ({ project }) => ONBOARDING_TYPES.has(project.primaryType) || project.hasCli,
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const first = runnableCommands(readme)[0];
-    const weight = ruleWeight('onboarding.first-command.early', project.primaryType);
+    const weight = ruleWeight(
+      'onboarding.first-command.early',
+      project.primaryType,
+      config.scoring.preset,
+    );
     if (!first)
       return {
         score: failScore(
@@ -162,7 +170,7 @@ export const expectedOutputRule: Rule = {
     'Checks whether CLI/developer-tool commands are followed by a compact representation of successful output.',
   applies: ({ project }) =>
     project.hasCli || ['cli', 'developer-tool'].includes(project.primaryType),
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const commands = runnableCommands(readme);
     if (!commands.length)
       return {
@@ -182,7 +190,11 @@ export const expectedOutputRule: Rule = {
         findings: [],
       };
     const present = hasExpectedOutput(readme);
-    const weight = ruleWeight('onboarding.expected-output.present', project.primaryType);
+    const weight = ruleWeight(
+      'onboarding.expected-output.present',
+      project.primaryType,
+      config.scoring.preset,
+    );
     return {
       score: present
         ? passScore(

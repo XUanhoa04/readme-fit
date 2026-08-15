@@ -22,8 +22,12 @@ export const relativeLinkRule: Rule = {
   description:
     'Verifies that relative Markdown links and image paths resolve inside the repository.',
   applies: () => true,
-  evaluate: async ({ repository, readme, project }) => {
-    const weight = ruleWeight('correctness.link.exists', project.primaryType);
+  evaluate: async ({ repository, readme, project, config }) => {
+    const weight = ruleWeight(
+      'correctness.link.exists',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const candidates = readme.links.filter((link) => isRelative(link.url));
     const broken = [];
     const readmeDirectory = path.dirname(path.join(repository.root, readme.path));

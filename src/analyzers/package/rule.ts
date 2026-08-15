@@ -46,8 +46,12 @@ export const packageNameRule: Rule = {
   description:
     'Compares npm/pip install targets with package metadata; it does not run the installation.',
   applies: ({ repository }) => Boolean(repository.packageJson || repository.pyproject),
-  evaluate: ({ repository, readme, project }) => {
-    const weight = ruleWeight('correctness.package-name.matches', project.primaryType);
+  evaluate: ({ repository, readme, project, config }) => {
+    const weight = ruleWeight(
+      'correctness.package-name.matches',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const expectedNpm =
       typeof repository.packageJson?.name === 'string'
         ? repository.packageJson.name

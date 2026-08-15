@@ -1,5 +1,7 @@
 import type { ProjectType } from '../models/index.js';
 
+export type ScoringPreset = 'minimal' | 'balanced' | 'oss' | 'portfolio';
+
 const BASE_WEIGHTS: Record<string, number> = {
   'correctness.command.exists': 25,
   'correctness.link.exists': 25,
@@ -50,6 +52,57 @@ const TYPE_OVERRIDES: Partial<Record<ProjectType, Record<string, number>>> = {
   },
 };
 
-export function ruleWeight(id: string, projectType: ProjectType): number {
-  return TYPE_OVERRIDES[projectType]?.[id] ?? BASE_WEIGHTS[id] ?? 10;
+const PRESET_OVERRIDES: Record<
+  Exclude<ScoringPreset, 'balanced'>,
+  Record<string, number>
+> = {
+  minimal: {
+    'structure.hierarchy': 2,
+    'hero.explanation.present': 15,
+    'onboarding.quick-start.present': 35,
+    'onboarding.first-command.early': 30,
+    'onboarding.expected-output.present': 15,
+    'visual.demo.present': 3,
+    'visual.demo.placement': 2,
+    'trust.license.present': 20,
+    'trust.signals.present': 5,
+    'trust.badges.signal-to-noise': 2,
+    'completeness.project-type': 25,
+    'impression.what': 30,
+    'impression.why': 10,
+    'impression.proof': 5,
+    'impression.try': 25,
+    'impression.trust': 5,
+  },
+  oss: {
+    'correctness.link.exists': 30,
+    'correctness.license.matches': 25,
+    'trust.license.present': 35,
+    'trust.signals.present': 40,
+    'trust.badges.signal-to-noise': 10,
+    'completeness.project-type': 50,
+  },
+  portfolio: {
+    'hero.explanation.present': 30,
+    'visual.demo.present': 35,
+    'visual.demo.placement': 15,
+    'impression.what': 25,
+    'impression.why': 30,
+    'impression.proof': 30,
+    'impression.try': 10,
+    'impression.trust': 5,
+  },
+};
+
+export function ruleWeight(
+  id: string,
+  projectType: ProjectType,
+  preset: ScoringPreset = 'balanced',
+): number {
+  return (
+    (preset === 'balanced' ? undefined : PRESET_OVERRIDES[preset][id]) ??
+    TYPE_OVERRIDES[projectType]?.[id] ??
+    BASE_WEIGHTS[id] ??
+    10
+  );
 }

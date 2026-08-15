@@ -18,8 +18,12 @@ export const licenseRule: Rule = {
   description:
     'Compares recognizable README license claims with a confidently detected local license.',
   applies: () => true,
-  evaluate: ({ repository, readme, project }) => {
-    const weight = ruleWeight('correctness.license.matches', project.primaryType);
+  evaluate: ({ repository, readme, project, config }) => {
+    const weight = ruleWeight(
+      'correctness.license.matches',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const fileLicense = detectLicense(repository.licenseText);
     const metadataLicense =
       typeof repository.packageJson?.license === 'string'

@@ -8,8 +8,12 @@ export const trustLicenseRule: Rule = {
   description:
     'Checks whether a local license exists; presence is not treated as proof of every README claim.',
   applies: () => true,
-  evaluate: ({ project }) => {
-    const weight = ruleWeight('trust.license.present', project.primaryType);
+  evaluate: ({ project, config }) => {
+    const weight = ruleWeight(
+      'trust.license.present',
+      project.primaryType,
+      config.scoring.preset,
+    );
     return {
       score: project.hasLicense
         ? passScore('trust.license.present', weight, 'A local license file was found.')
@@ -40,7 +44,7 @@ export const trustSignalsRule: Rule = {
   description:
     'Measures meaningful repository trust signals without using raw badge count as quality.',
   applies: () => true,
-  evaluate: ({ repository, project }) => {
+  evaluate: ({ repository, project, config }) => {
     const signals = {
       tests: project.hasTests,
       ci: repository.files.some((file) => /^\.github\/workflows\/.*\.ya?ml$/i.test(file)),
@@ -51,7 +55,11 @@ export const trustSignalsRule: Rule = {
       changelog: repository.files.some((file) => /(?:^|\/)changelog\.md$/i.test(file)),
     };
     const count = Object.values(signals).filter(Boolean).length;
-    const weight = ruleWeight('trust.signals.present', project.primaryType);
+    const weight = ruleWeight(
+      'trust.signals.present',
+      project.primaryType,
+      config.scoring.preset,
+    );
     return {
       score:
         count >= 2

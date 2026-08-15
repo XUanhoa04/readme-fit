@@ -14,8 +14,12 @@ export const runtimeRule: Rule = {
     'Compares a documented Node.js minimum major with package engines and version files.',
   applies: ({ repository }) =>
     Boolean(repository.packageJson || repository.nvmrc || repository.nodeVersion),
-  evaluate: ({ repository, readme, project }) => {
-    const weight = ruleWeight('correctness.runtime.matches', project.primaryType);
+  evaluate: ({ repository, readme, project, config }) => {
+    const weight = ruleWeight(
+      'correctness.runtime.matches',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const readmeMatch = readme.raw.match(
       /Node(?:\.js)?\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)/i,
     );

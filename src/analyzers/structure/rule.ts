@@ -8,7 +8,7 @@ export const structureRule: Rule = {
   description:
     'Reports basic H1 count, skipped heading levels, duplicate titles, and empty sections.',
   applies: () => true,
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const h1 = readme.headings.filter((heading) => heading.depth === 1);
     const skipped = readme.headings.filter(
       (heading, index) =>
@@ -47,19 +47,20 @@ export const structureRule: Rule = {
         value: empty.map((section) => section.heading.text),
       },
     ];
+    const weight = ruleWeight(
+      'structure.hierarchy',
+      project.primaryType,
+      config.scoring.preset,
+    );
     return {
       score: issues
         ? failScore(
             'structure.hierarchy',
-            ruleWeight('structure.hierarchy', project.primaryType),
+            weight,
             Math.max(0, 5 - issues),
             `${issues} structural hygiene issue(s).`,
           )
-        : passScore(
-            'structure.hierarchy',
-            ruleWeight('structure.hierarchy', project.primaryType),
-            'Heading structure is coherent.',
-          ),
+        : passScore('structure.hierarchy', weight, 'Heading structure is coherent.'),
       findings: issues
         ? [
             finding({

@@ -19,7 +19,11 @@ function metricRule(input: {
     applies: () => true,
     evaluate: (context) => {
       const result = input.test(context.readme.raw, context);
-      const weight = ruleWeight(input.id, context.project.primaryType);
+      const weight = ruleWeight(
+        input.id,
+        context.project.primaryType,
+        context.config.scoring.preset,
+      );
       const earned =
         result.status === 'yes'
           ? weight

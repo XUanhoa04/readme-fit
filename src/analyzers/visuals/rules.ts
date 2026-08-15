@@ -61,8 +61,12 @@ export const demoPresenceRule: Rule = {
   description:
     'Detects product proof and applies it only where seeing the project materially supports adoption.',
   applies: () => true,
-  evaluate: ({ readme, project }) => {
-    const weight = ruleWeight('visual.demo.present', project.primaryType);
+  evaluate: ({ readme, project, config }) => {
+    const weight = ruleWeight(
+      'visual.demo.present',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const found = demos(readme);
     if (!relevant(project.primaryType) || weight === 0)
       return {
@@ -119,7 +123,7 @@ export const demoPlacementRule: Rule = {
   description:
     'Measures how much content appears before the first detected product demonstration.',
   applies: ({ project }) => relevant(project.primaryType),
-  evaluate: ({ readme, project }) => {
+  evaluate: ({ readme, project, config }) => {
     const found = demos(readme).sort((a, b) => a.line - b.line);
     if (!found[0])
       return {
@@ -127,7 +131,11 @@ export const demoPlacementRule: Rule = {
         findings: [],
       };
     const before = wordsBefore(readme, found[0].line);
-    const weight = ruleWeight('visual.demo.placement', project.primaryType);
+    const weight = ruleWeight(
+      'visual.demo.placement',
+      project.primaryType,
+      config.scoring.preset,
+    );
     const late = before > 250;
     return {
       score: late
