@@ -31,6 +31,11 @@ export function renderTerminal(report: AnalysisReport): string {
     scoreLine(LABELS[category as Category], score?.score ?? null),
   );
   const top = report.findings.filter((finding) => finding.severity !== 'info').slice(0, 6);
+  const impression = report.facts.firstImpression && typeof report.facts.firstImpression === 'object'
+    ? report.facts.firstImpression as Record<string, unknown>
+    : {};
+  const impressionScore = report.scores.impression?.score ?? null;
+  const mark = (key: string) => impression[key] === 'yes' ? 'YES' : impression[key] === 'partly' ? 'PARTLY' : 'NO';
   return [
     pc.bold('readme-fit'),
     'Does your README fit what you built?',
@@ -51,6 +56,18 @@ export function renderTerminal(report: AnalysisReport): string {
     pc.bold('TOP PRIORITIES'),
     '',
     ...(top.length ? top.flatMap((finding) => [renderFinding(finding), '']) : ['No high-priority findings.', '']),
+    pc.bold('FIRST 5 SECONDS'),
+    '',
+    `Understand WHAT it is?    ${mark('what')}`,
+    `Understand WHY I need it? ${mark('why')}`,
+    `See it working?           ${mark('proof')}`,
+    `Know how to try it?       ${mark('try')}`,
+    `Trust the project?        ${mark('trust')}`,
+    '',
+    scoreLine('Score', impressionScore),
+    '',
+    'First-impression score is a heuristic based on README structure and content, not actual user testing.',
+    '',
     pc.bold('VERIFICATION COVERAGE'),
     '',
     ...report.coverage.verified.map((item) => `✓ ${item}`),

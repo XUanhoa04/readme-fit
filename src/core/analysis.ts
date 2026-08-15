@@ -41,6 +41,11 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
     const max = applicable.reduce((sum, rule) => sum + rule.weight, 0);
     score.score = max ? Math.round(applicable.reduce((sum, rule) => sum + rule.earned, 0) / max * 100) : null;
   }
+  const impressionFacts: Record<string, unknown> = {};
+  for (const key of ['impression.what', 'impression.why', 'impression.proof', 'impression.try', 'impression.trust']) {
+    if (key in facts) impressionFacts[key.split('.')[1] ?? key] = facts[key];
+  }
+  facts.firstImpression = impressionFacts;
   const numeric = Object.values(scores).flatMap((score) => score?.score ?? []);
   return {
     schemaVersion: 1,
