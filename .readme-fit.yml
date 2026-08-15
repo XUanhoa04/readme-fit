@@ -1,0 +1,21 @@
+version: 1
+
+project:
+  type: auto
+
+readme:
+  path: README.md
+
+rules:
+  correctness: true
+  onboarding: true
+  visual_proof: true
+  first_impression: true
+
+ignore:
+  rules: []
+  paths:
+    - fixtures/**
+
+scoring:
+  preset: balanced

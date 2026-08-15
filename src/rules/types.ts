@@ -1,4 +1,11 @@
-import type { Category, Finding, ProjectProfile, ReadmeDocument, RepositorySnapshot, RuleScore } from '../models/index.js';
+import type {
+  Category,
+  Finding,
+  ProjectProfile,
+  ReadmeDocument,
+  RepositorySnapshot,
+  RuleScore,
+} from '../models/index.js';
 import type { ReadmeFitConfig } from '../core/config/config.js';
 
 export interface AnalysisContext {

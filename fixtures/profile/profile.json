@@ -1,0 +1,36 @@
+{
+  "login": "fixture-user",
+  "name": "Fixture User",
+  "bio": "Building developer tools and observability systems.",
+  "url": "https://github.com/fixture-user",
+  "blog": "https://example.com",
+  "company": null,
+  "location": null,
+  "publicRepos": 4,
+  "followers": 10,
+  "profileReadme": "# Hello\n\nI build developer tools with public evidence.\n\n## Selected work\n\n- [Trace CLI](https://github.com/fixture-user/trace-cli)\n- [Docs Audit](https://github.com/fixture-user/docs-audit)\n",
+  "repositories": [
+    {
+      "name": "trace-cli",
+      "description": "CLI developer tooling for observability workflows",
+      "url": "https://github.com/fixture-user/trace-cli",
+      "language": "TypeScript",
+      "topics": ["observability", "developer-tools", "cli"],
+      "stars": 12,
+      "fork": false,
+      "archived": false,
+      "updatedAt": "2026-08-01T00:00:00Z"
+    },
+    {
+      "name": "docs-audit",
+      "description": "Documentation automation for open source projects",
+      "url": "https://github.com/fixture-user/docs-audit",
+      "language": "TypeScript",
+      "topics": ["developer-tools", "documentation"],
+      "stars": 8,
+      "fork": false,
+      "archived": false,
+      "updatedAt": "2026-07-01T00:00:00Z"
+    }
+  ]
+}

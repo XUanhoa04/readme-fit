@@ -49,16 +49,34 @@ export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
       if (section) block.section = section;
       codeBlocks.push(block);
     } else if (item.type === 'link') {
-      links.push({ url: item.url, text: textOf(item), line: lineOf(item), image: false, html: false });
+      links.push({
+        url: item.url,
+        text: textOf(item),
+        line: lineOf(item),
+        image: false,
+        html: false,
+      });
     } else if (item.type === 'image') {
-      const image = { url: item.url, text: item.alt ?? '', line: lineOf(item), image: true, html: false };
+      const image = {
+        url: item.url,
+        text: item.alt ?? '',
+        line: lineOf(item),
+        image: true,
+        html: false,
+      };
       images.push(image);
       links.push(image);
     } else if (item.type === 'html') {
       htmlBlocks.push({ value: item.value, line: lineOf(item) });
       details += /<details\b/i.test(item.value) ? 1 : 0;
       for (const match of item.value.matchAll(/<img\b[^>]*?src=["']([^"']+)["'][^>]*>/gi)) {
-        const image = { url: match[1] ?? '', text: '', line: lineOf(item), image: true, html: true };
+        const image = {
+          url: match[1] ?? '',
+          text: '',
+          line: lineOf(item),
+          image: true,
+          html: true,
+        };
         images.push(image);
         links.push(image);
       }
@@ -74,7 +92,12 @@ export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
     return {
       heading,
       endLine,
-      wordCount: lines.slice(heading.line, endLine).join(' ').trim().split(/\s+/).filter(Boolean).length,
+      wordCount: lines
+        .slice(heading.line, endLine)
+        .join(' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length,
     };
   });
 
@@ -82,7 +105,11 @@ export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
     path,
     raw,
     lineCount: lines.length,
-    wordCount: raw.replace(/```[\s\S]*?```/g, ' ').trim().split(/\s+/).filter(Boolean).length,
+    wordCount: raw
+      .replace(/```[\s\S]*?```/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length,
     headings,
     sections,
     codeBlocks,

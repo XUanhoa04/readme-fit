@@ -1,4 +1,11 @@
-import type { Category, Confidence, Evidence, Finding, Priority, Severity } from '../models/index.js';
+import type {
+  Category,
+  Confidence,
+  Evidence,
+  Finding,
+  Priority,
+  Severity,
+} from '../models/index.js';
 
 export function finding(input: {
   id: string;

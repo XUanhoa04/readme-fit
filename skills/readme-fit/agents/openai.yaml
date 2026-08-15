@@ -1,4 +1,4 @@
 interface:
-  display_name: "README Fit Auditor"
-  short_description: "Evidence-based repository-aware README review"
-  default_prompt: "Use $readme-fit to audit this README against its repository and prioritize evidence-based improvements."
+  display_name: 'README Fit Auditor'
+  short_description: 'Evidence-based repository-aware README review'
+  default_prompt: 'Use $readme-fit to audit this README against its repository and prioritize evidence-based improvements.'

@@ -1,0 +1,14 @@
+{
+  "name": "good-cli",
+  "version": "1.0.0",
+  "bin": {
+    "good": "dist/cli.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

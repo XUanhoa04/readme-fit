@@ -1,0 +1,7 @@
+{
+  "name": "sample-desktop",
+  "version": "1.0.0",
+  "dependencies": {
+    "electron": "^38.0.0"
+  }
+}

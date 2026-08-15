@@ -11,7 +11,7 @@ import '../rules/builtin.js';
 export async function analyzeRepository(rootInput: string): Promise<AnalysisReport> {
   const root = path.resolve(rootInput);
   const config = await loadConfig(root);
-  const repository = await inspectRepository(root);
+  const repository = await inspectRepository(root, config.ignore.paths);
   const readmePath = resolveReadme(root, config);
   let raw: string;
   try {
@@ -26,12 +26,25 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
   const scores: AnalysisReport['scores'] = {};
   const facts: Record<string, unknown> = { fileCount: repository.files.length };
   for (const rule of getRules()) {
-    if (config.ignore.rules.includes(rule.id) || !rule.applies(context)) continue;
+    const configKey =
+      rule.category === 'visual-proof'
+        ? 'visual_proof'
+        : rule.category === 'impression'
+          ? 'first_impression'
+          : rule.category;
+    if (
+      config.rules[configKey] === false ||
+      config.ignore.rules.includes(rule.id) ||
+      !rule.applies(context)
+    )
+      continue;
     const result = await rule.evaluate(context);
     findings.push(...result.findings);
     Object.assign(facts, result.facts);
     const category = rule.category;
-    const existing = scores[category] ?? { category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore;
+    const existing =
+      scores[category] ??
+      ({ category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore);
     existing.rules.push(result.score);
     scores[category] = existing;
   }
@@ -39,10 +52,18 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
     if (!score) continue;
     const applicable = score.rules.filter((rule) => rule.status !== 'not_applicable');
     const max = applicable.reduce((sum, rule) => sum + rule.weight, 0);
-    score.score = max ? Math.round(applicable.reduce((sum, rule) => sum + rule.earned, 0) / max * 100) : null;
+    score.score = max
+      ? Math.round((applicable.reduce((sum, rule) => sum + rule.earned, 0) / max) * 100)
+      : null;
   }
   const impressionFacts: Record<string, unknown> = {};
-  for (const key of ['impression.what', 'impression.why', 'impression.proof', 'impression.try', 'impression.trust']) {
+  for (const key of [
+    'impression.what',
+    'impression.why',
+    'impression.proof',
+    'impression.try',
+    'impression.trust',
+  ]) {
     if (key in facts) impressionFacts[key.split('.')[1] ?? key] = facts[key];
   }
   facts.firstImpression = impressionFacts;
@@ -53,13 +74,26 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
     project,
     readme: { path: readme.path, lines: readme.lineCount, words: readme.wordCount },
     scores,
-    overall: numeric.length ? Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length) : 0,
-    findings: findings.sort((a, b) => ['critical', 'high', 'medium', 'low', 'info'].indexOf(a.severity) - ['critical', 'high', 'medium', 'low', 'info'].indexOf(b.severity)),
+    overall: numeric.length
+      ? Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length)
+      : 0,
+    findings: findings.sort(
+      (a, b) =>
+        ['critical', 'high', 'medium', 'low', 'info'].indexOf(a.severity) -
+        ['critical', 'high', 'medium', 'low', 'info'].indexOf(b.severity),
+    ),
     facts,
     coverage: {
-      verified: ['README structure parsed with a Markdown AST', 'repository metadata inspected statically'],
+      verified: [
+        'README structure parsed with a Markdown AST',
+        'repository metadata inspected statically',
+      ],
       inferred: ['project type'],
-      notChecked: ['external URL health', 'commands were not executed', 'demo/video content'],
+      notChecked: [
+        'external URL health',
+        'commands were not executed',
+        'demo/video content',
+      ],
     },
     limitations: [
       'Static analysis does not prove that documented commands succeed at runtime.',

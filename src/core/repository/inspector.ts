@@ -4,8 +4,17 @@ import ignore from 'ignore';
 import type { RepositorySnapshot } from '../../models/index.js';
 
 const DEFAULT_IGNORES = [
-  '.git/', 'node_modules/', 'dist/', 'build/', 'coverage/', '.next/', '.cache/',
-  'vendor/', 'target/', '.venv/', 'venv/',
+  '.git/',
+  'node_modules/',
+  'dist/',
+  'build/',
+  'coverage/',
+  '.next/',
+  '.cache/',
+  'vendor/',
+  'target/',
+  '.venv/',
+  'venv/',
 ];
 
 async function readOptional(root: string, relative: string): Promise<string | undefined> {
@@ -16,8 +25,8 @@ async function readOptional(root: string, relative: string): Promise<string | un
   }
 }
 
-async function collectFiles(root: string): Promise<string[]> {
-  const matcher = ignore().add(DEFAULT_IGNORES);
+async function collectFiles(root: string, extraIgnores: string[] = []): Promise<string[]> {
+  const matcher = ignore().add(DEFAULT_IGNORES).add(extraIgnores);
   const gitignore = await readOptional(root, '.gitignore');
   if (gitignore) matcher.add(gitignore);
   const files: string[] = [];
@@ -38,9 +47,12 @@ async function collectFiles(root: string): Promise<string[]> {
   return files.sort();
 }
 
-export async function inspectRepository(rootInput: string): Promise<RepositorySnapshot> {
+export async function inspectRepository(
+  rootInput: string,
+  extraIgnores: string[] = [],
+): Promise<RepositorySnapshot> {
   const root = path.resolve(rootInput);
-  const files = await collectFiles(root);
+  const files = await collectFiles(root, extraIgnores);
   const packageRaw = await readOptional(root, 'package.json');
   let packageJson: Record<string, unknown> | undefined;
   if (packageRaw) {
@@ -53,14 +65,20 @@ export async function inspectRepository(rootInput: string): Promise<RepositorySn
   const snapshot: RepositorySnapshot = { root, files };
   if (packageJson) snapshot.packageJson = packageJson;
   const optional: Array<[keyof RepositorySnapshot, string]> = [
-    ['pyproject', 'pyproject.toml'], ['cargoToml', 'Cargo.toml'], ['goMod', 'go.mod'],
-    ['nvmrc', '.nvmrc'], ['nodeVersion', '.node-version'], ['pythonVersion', '.python-version'],
+    ['pyproject', 'pyproject.toml'],
+    ['cargoToml', 'Cargo.toml'],
+    ['goMod', 'go.mod'],
+    ['nvmrc', '.nvmrc'],
+    ['nodeVersion', '.node-version'],
+    ['pythonVersion', '.python-version'],
   ];
   for (const [key, filename] of optional) {
     const value = await readOptional(root, filename);
     if (value !== undefined) Object.assign(snapshot, { [key]: value.trim() });
   }
-  const licenseName = files.find((file) => /^licen[sc]e(?:\.|$)/i.test(path.basename(file)));
+  const licenseName = files.find((file) =>
+    /^licen[sc]e(?:\.|$)/i.test(path.basename(file)),
+  );
   if (licenseName) {
     const licenseText = await readOptional(root, licenseName);
     if (licenseText !== undefined) snapshot.licenseText = licenseText;
