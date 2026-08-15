@@ -65,14 +65,19 @@ export async function inspectRepository(
   const files = await collectFiles(root, extraIgnores);
   const packageRaw = await readOptional(root, 'package.json');
   let packageJson: Record<string, unknown> | undefined;
+  const metadataIssues: Array<{ path: string; message: string }> = [];
   if (packageRaw) {
     try {
       packageJson = JSON.parse(packageRaw) as Record<string, unknown>;
     } catch {
       packageJson = undefined;
+      metadataIssues.push({
+        path: 'package.json',
+        message: 'package.json is not valid JSON and could not be inspected.',
+      });
     }
   }
-  const snapshot: RepositorySnapshot = { root, files };
+  const snapshot: RepositorySnapshot = { root, files, metadataIssues };
   if (packageJson) snapshot.packageJson = packageJson;
   const optional: Array<[keyof RepositorySnapshot, string]> = [
     ['pyproject', 'pyproject.toml'],

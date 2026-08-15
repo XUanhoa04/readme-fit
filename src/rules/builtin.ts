@@ -2,6 +2,7 @@ import { commandExistsRule } from '../analyzers/commands/rule.js';
 import { licenseRule } from '../analyzers/license/rule.js';
 import { relativeLinkRule } from '../analyzers/links/rule.js';
 import { externalLinkRule } from '../analyzers/links/external-rule.js';
+import { metadataParseRule } from '../analyzers/metadata/rule.js';
 import { packageNameRule } from '../analyzers/package/rule.js';
 import { runtimeRule } from '../analyzers/runtime/rule.js';
 import { heroExplanationRule } from '../analyzers/hero/rules.js';
@@ -22,6 +23,7 @@ for (const rule of [
   commandExistsRule,
   relativeLinkRule,
   externalLinkRule,
+  metadataParseRule,
   packageNameRule,
   runtimeRule,
   licenseRule,

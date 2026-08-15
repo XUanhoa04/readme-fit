@@ -131,6 +131,7 @@ export interface RepositorySnapshot {
   nodeVersion?: string;
   pythonVersion?: string;
   licenseText?: string;
+  metadataIssues?: Array<{ path: string; message: string }>;
 }
 
 export interface RuleScore {

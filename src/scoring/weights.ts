@@ -6,6 +6,7 @@ const BASE_WEIGHTS: Record<string, number> = {
   'correctness.command.exists': 25,
   'correctness.link.exists': 25,
   'correctness.external-link.reachable': 10,
+  'correctness.metadata.parseable': 15,
   'correctness.package-name.matches': 20,
   'correctness.runtime.matches': 15,
   'correctness.license.matches': 15,
