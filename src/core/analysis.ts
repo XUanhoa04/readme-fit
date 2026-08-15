@@ -5,14 +5,8 @@ import { parseReadme } from './markdown/parser.js';
 import { inspectRepository } from './repository/inspector.js';
 import type { AnalysisReport, CategoryScore, ProjectProfile } from '../models/index.js';
 import { getRules } from '../rules/registry.js';
-
-function provisionalProject(): ProjectProfile {
-  return {
-    primaryType: 'unknown', secondaryTypes: [], languages: [], packageManagers: [],
-    hasCli: false, hasWebUi: false, hasTests: false, hasLicense: false,
-    entrypoints: [], confidence: 0,
-  };
-}
+import { classifyProject } from '../classifiers/project-type/classifier.js';
+import '../rules/builtin.js';
 
 export async function analyzeRepository(rootInput: string): Promise<AnalysisReport> {
   const root = path.resolve(rootInput);
@@ -26,7 +20,7 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
     throw new Error(`README not found: ${path.relative(root, readmePath)}`);
   }
   const readme = parseReadme(raw, path.relative(root, readmePath).replaceAll('\\', '/'));
-  const project = provisionalProject();
+  const project: ProjectProfile = classifyProject(repository, config.project.type);
   const context = { repository, readme, project, config };
   const findings = [];
   const scores: AnalysisReport['scores'] = {};
@@ -36,12 +30,10 @@ export async function analyzeRepository(rootInput: string): Promise<AnalysisRepo
     const result = await rule.evaluate(context);
     findings.push(...result.findings);
     Object.assign(facts, result.facts);
-    const category = result.findings[0]?.category;
-    if (category) {
-      const existing = scores[category] ?? { category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore;
-      existing.rules.push(result.score);
-      scores[category] = existing;
-    }
+    const category = rule.category;
+    const existing = scores[category] ?? { category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore;
+    existing.rules.push(result.score);
+    scores[category] = existing;
   }
   for (const score of Object.values(scores)) {
     if (!score) continue;

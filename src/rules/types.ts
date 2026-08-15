@@ -1,4 +1,4 @@
-import type { Finding, ProjectProfile, ReadmeDocument, RepositorySnapshot, RuleScore } from '../models/index.js';
+import type { Category, Finding, ProjectProfile, ReadmeDocument, RepositorySnapshot, RuleScore } from '../models/index.js';
 import type { ReadmeFitConfig } from '../core/config/config.js';
 
 export interface AnalysisContext {
@@ -16,6 +16,7 @@ export interface RuleResult {
 
 export interface Rule {
   id: string;
+  category: Category;
   description: string;
   applies(context: AnalysisContext): boolean;
   evaluate(context: AnalysisContext): Promise<RuleResult> | RuleResult;
