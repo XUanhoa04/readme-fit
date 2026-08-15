@@ -1,0 +1,59 @@
+{
+  "name": "readme-fit",
+  "version": "0.1.0",
+  "description": "Repository-aware README quality auditor grounded in evidence.",
+  "type": "module",
+  "bin": {
+    "readme-fit": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "npm run build && node dist/cli.js scan fixtures/stale-cli",
+    "dogfood": "npm run build && node dist/cli.js scan ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "readme",
+    "documentation",
+    "linter",
+    "developer-tools",
+    "static-analysis"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XUanhoa04/readme-fit.git"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "ignore": "^7.0.5",
+    "picocolors": "^1.1.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/node": "^24.2.1",
+    "eslint": "^9.33.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.1",
+    "vitest": "^3.2.4"
+  }
+}
