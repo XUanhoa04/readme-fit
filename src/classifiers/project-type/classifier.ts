@@ -4,6 +4,7 @@ import type {
   ProjectType,
   RepositorySnapshot,
 } from '../../models/index.js';
+import { pythonPackageName } from '../../core/repository/python-metadata.js';
 
 const EXTENSION_LANGUAGES: Record<string, string> = {
   '.ts': 'TypeScript',
@@ -113,6 +114,11 @@ export function classifyProject(
     repository.files.includes('yarn.lock') ? 'yarn' : '',
     repository.files.includes('uv.lock') ? 'uv' : '',
     repository.files.includes('poetry.lock') ? 'poetry' : '',
+    repository.pyproject &&
+    !repository.files.includes('uv.lock') &&
+    !repository.files.includes('poetry.lock')
+      ? 'pip'
+      : '',
     repository.cargoToml ? 'cargo' : '',
     repository.goMod ? 'go' : '',
   ].filter(Boolean);
@@ -133,6 +139,8 @@ export function classifyProject(
     entrypoints,
     confidence: configured ? 1 : inferred.length ? 0.9 : 0.25,
   };
-  if (typeof pkg.name === 'string') profile.packageName = pkg.name;
+  const packageName =
+    typeof pkg.name === 'string' ? pkg.name : pythonPackageName(repository.pyproject);
+  if (packageName) profile.packageName = packageName;
   return profile;
 }

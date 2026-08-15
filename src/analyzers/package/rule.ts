@@ -1,6 +1,7 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
+import { pythonPackageName } from '../../core/repository/python-metadata.js';
 
 interface InstallClaim {
   manager: 'npm' | 'pip';
@@ -36,10 +37,6 @@ function claims(blocks: Array<{ value: string; line: number }>): InstallClaim[] 
   return output;
 }
 
-function pythonName(pyproject?: string): string | undefined {
-  return pyproject?.match(/(?:^|\n)name\s*=\s*["']([^"']+)["']/)?.[1];
-}
-
 export const packageNameRule: Rule = {
   id: 'correctness.package-name.matches',
   category: 'correctness',
@@ -56,7 +53,7 @@ export const packageNameRule: Rule = {
       typeof repository.packageJson?.name === 'string'
         ? repository.packageJson.name
         : undefined;
-    const expectedPip = pythonName(repository.pyproject);
+    const expectedPip = pythonPackageName(repository.pyproject);
     const found = claims(readme.codeBlocks);
     const comparable = found.filter((claim) =>
       claim.manager === 'npm' ? expectedNpm : expectedPip,
