@@ -43,9 +43,8 @@ describe('analysis edge cases and scoring math', () => {
       async (root) => {
         const report = await analyzeRepository(root);
         expect(
-          report.findings.find(
-            (finding) => finding.id === 'correctness.metadata.parseable',
-          )?.source?.path,
+          report.findings.find((finding) => finding.id === 'correctness.metadata.parseable')
+            ?.source?.path,
         ).toBe('package.json');
       },
     );
@@ -55,9 +54,7 @@ describe('analysis edge cases and scoring math', () => {
     const report = await analyzeRepository(path.resolve('fixtures', 'stale-cli'));
     for (const category of Object.values(report.scores)) {
       if (!category) continue;
-      const applicable = category.rules.filter(
-        (rule) => rule.status !== 'not_applicable',
-      );
+      const applicable = category.rules.filter((rule) => rule.status !== 'not_applicable');
       const weight = applicable.reduce((sum, rule) => sum + rule.weight, 0);
       const expected = weight
         ? Math.round(
