@@ -148,6 +148,31 @@ export interface CategoryScore {
   rules: RuleScore[];
 }
 
+export interface BaselineFinding {
+  fingerprint: string;
+  id: string;
+  title: string;
+  category: Category;
+  severity: Severity;
+  path?: string;
+}
+
+export interface BaselineFile {
+  schemaVersion: 1;
+  createdAt: string;
+  projectType: ProjectType;
+  scores: Partial<Record<Category, number | null>>;
+  findings: BaselineFinding[];
+}
+
+export interface BaselineComparison {
+  schemaVersion: 1;
+  newFindings: Finding[];
+  resolvedFindings: BaselineFinding[];
+  unchangedFindings: number;
+  scoreDeltas: Partial<Record<Category, number | null>>;
+}
+
 export interface AnalysisReport {
   schemaVersion: 1;
   generatedAt: string;
@@ -163,6 +188,7 @@ export interface AnalysisReport {
     notChecked: string[];
   };
   limitations: string[];
+  baseline?: BaselineComparison;
 }
 
 export type ProfileCategory =

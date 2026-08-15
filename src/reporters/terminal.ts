@@ -17,6 +17,29 @@ export interface TerminalRenderOptions {
   quiet?: boolean;
 }
 
+function renderBaseline(report: AnalysisReport): string[] {
+  if (!report.baseline) return [];
+  const deltas = Object.entries(report.baseline.scoreDeltas).filter(
+    ([, delta]) => typeof delta === 'number' && delta !== 0,
+  );
+  return [
+    pc.bold('BASELINE REGRESSION'),
+    '',
+    `New findings       ${report.baseline.newFindings.length}`,
+    `Resolved findings  ${report.baseline.resolvedFindings.length}`,
+    `Unchanged findings ${report.baseline.unchangedFindings}`,
+    ...deltas.map(
+      ([category, delta]) =>
+        `${LABELS[category as Category].padEnd(20)} ${delta && delta > 0 ? '+' : ''}${String(delta)}`,
+    ),
+    '',
+    ...report.baseline.resolvedFindings.map(
+      (finding) => `RESOLVED ${finding.id} · ${finding.title}`,
+    ),
+    ...(report.baseline.resolvedFindings.length ? [''] : []),
+  ];
+}
+
 function scoreLine(label: string, score: number | null): string {
   return `${label.padEnd(22)}${score === null ? 'N/A' : String(score).padStart(3)}`;
 }
@@ -100,7 +123,8 @@ export function renderTerminal(
   options: TerminalRenderOptions = {},
 ): string {
   if (options.quiet) {
-    const critical = report.findings.filter((finding) => finding.severity === 'critical');
+    const candidates = report.baseline?.newFindings ?? report.findings;
+    const critical = candidates.filter((finding) => finding.severity === 'critical');
     return (
       [
         `readme-fit ${report.overall}/100`,
@@ -119,7 +143,8 @@ export function renderTerminal(
   const scoreLines = Object.entries(report.scores).map(([category, score]) =>
     scoreLine(LABELS[category as Category], score?.score ?? null),
   );
-  const top = report.findings.filter((finding) => finding.severity !== 'info').slice(0, 6);
+  const candidates = report.baseline?.newFindings ?? report.findings;
+  const top = candidates.filter((finding) => finding.severity !== 'info').slice(0, 6);
   const impression = impressionData(report);
   const verboseRules = options.verbose
     ? [
@@ -155,6 +180,7 @@ export function renderTerminal(
       '',
       scoreLine('Overall', report.overall),
       '',
+      ...renderBaseline(report),
       pc.bold('TOP PRIORITIES'),
       '',
       ...(top.length

@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 function runCli(args: string[]) {
@@ -69,5 +72,39 @@ describe('CLI behavior', () => {
       1,
     );
     expect(runCli(['scan', 'fixtures/good-cli', '--fail-on', 'critical']).status).toBe(0);
+  });
+
+  it('captures baselines and fails CI only for new regressions', () => {
+    const temporary = mkdtempSync(path.join(tmpdir(), 'readme-fit-baseline-'));
+    try {
+      const captured = runCli(['baseline', 'fixtures/good-cli']);
+      expect(captured.status).toBe(0);
+      const baselinePath = path.join(temporary, 'baseline.json');
+      writeFileSync(baselinePath, captured.stdout);
+
+      const regression = runCli([
+        'scan',
+        'fixtures/stale-cli',
+        '--baseline',
+        baselinePath,
+        '--fail-on',
+        'critical',
+      ]);
+      expect(regression.status).toBe(1);
+      expect(regression.stdout).toContain('BASELINE REGRESSION');
+
+      const unchanged = runCli([
+        'scan',
+        'fixtures/good-cli',
+        '--baseline',
+        baselinePath,
+        '--fail-on',
+        'critical',
+      ]);
+      expect(unchanged.status).toBe(0);
+      expect(unchanged.stdout).toContain('New findings       0');
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
   });
 });

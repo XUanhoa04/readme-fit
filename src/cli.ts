@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import path from 'node:path';
 import { analyzeRepository } from './core/analysis.js';
+import { compareBaseline, createBaseline, loadBaseline } from './core/baseline.js';
 import { explainRule, getRules } from './rules/registry.js';
 import { renderJson } from './reporters/json.js';
 import {
@@ -26,6 +28,7 @@ program
   .option('--format <format>', 'output format: text or json', 'text')
   .option('--impression', 'show only the first-impression report')
   .option('--check-links', 'check external HTTP links with bounded network requests')
+  .option('--baseline <file>', 'compare against a previously captured baseline')
   .option('--verbose', 'show every applicable rule result')
   .option('--quiet', 'show only the overall score and critical findings')
   .option('--fail-on <level>', 'exit non-zero on a category or severity')
@@ -37,6 +40,7 @@ program
         format: string;
         impression?: boolean;
         checkLinks?: boolean;
+        baseline?: string;
         verbose?: boolean;
         quiet?: boolean;
         failOn?: string;
@@ -46,6 +50,12 @@ program
         const report = await analyzeRepository(repositoryPath, {
           checkLinks: Boolean(options.checkLinks),
         });
+        if (options.baseline) {
+          report.baseline = compareBaseline(
+            report,
+            await loadBaseline(path.resolve(options.baseline)),
+          );
+        }
         const format = options.json ? 'json' : options.format;
         if (!['text', 'json'].includes(format))
           throw new Error(`Unknown format: ${format}`);
@@ -64,18 +74,23 @@ program
                 }),
         );
         if (options.failOn) {
+          const candidateFindings = report.baseline?.newFindings ?? report.findings;
           const severities = ['critical', 'high', 'medium', 'low', 'info'];
           if (severities.includes(options.failOn)) {
             const threshold = severities.indexOf(options.failOn);
             if (
-              report.findings.some(
+              candidateFindings.some(
                 (finding) => severities.indexOf(finding.severity) <= threshold,
               )
             )
               process.exitCode = 1;
           } else {
-            const category = report.scores[options.failOn as keyof typeof report.scores];
-            if (category?.rules.some((rule) => rule.status === 'fail'))
+            const hasFailure = report.baseline
+              ? candidateFindings.some((finding) => finding.category === options.failOn)
+              : report.scores[
+                  options.failOn as keyof typeof report.scores
+                ]?.rules.some((rule) => rule.status === 'fail');
+            if (hasFailure)
               process.exitCode = 1;
           }
         }
@@ -87,6 +102,25 @@ program
       }
     },
   );
+
+program
+  .command('baseline')
+  .description('Capture the current findings for regression-aware CI')
+  .argument('[path]', 'repository path', '.')
+  .option('--check-links', 'include external HTTP link checks in the baseline')
+  .action(async (repositoryPath: string, options: { checkLinks?: boolean }) => {
+    try {
+      const report = await analyzeRepository(repositoryPath, {
+        checkLinks: Boolean(options.checkLinks),
+      });
+      process.stdout.write(`${JSON.stringify(createBaseline(report), null, 2)}\n`);
+    } catch (error) {
+      process.stderr.write(
+        `readme-fit baseline: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 2;
+    }
+  });
 
 program
   .command('impression')
