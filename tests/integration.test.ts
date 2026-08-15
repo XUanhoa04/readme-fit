@@ -26,6 +26,7 @@ describe('repository analysis', () => {
     expect(
       good.findings.some((finding) => finding.id === 'correctness.command.exists'),
     ).toBe(false);
+    expect(good.scores.completeness?.score).toBe(100);
   });
 
   it('does not penalize a small library for missing video or logo', async () => {

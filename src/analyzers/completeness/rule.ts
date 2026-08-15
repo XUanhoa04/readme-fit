@@ -10,7 +10,7 @@ const REQUIRED: Partial<
     {
       id: 'installation',
       label: 'Installation',
-      pattern: /install|getting started/i,
+      pattern: /install|getting started|quick\s*start/i,
       reason: 'CLI users need a supported way to obtain the executable.',
     },
     {

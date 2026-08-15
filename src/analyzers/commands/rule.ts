@@ -1,5 +1,6 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, passScore } from '../../rules/helpers.js';
+import { ruleWeight } from '../../scoring/weights.js';
 
 interface CommandReference {
   command: string;
@@ -25,7 +26,8 @@ export const commandExistsRule: Rule = {
   description:
     'Checks documented npm, pnpm, and Yarn script commands against package.json without executing them.',
   applies: ({ repository }) => Boolean(repository.packageJson),
-  evaluate: ({ repository, readme }) => {
+  evaluate: ({ repository, readme, project }) => {
+    const weight = ruleWeight('correctness.command.exists', project.primaryType);
     const scriptsValue = repository.packageJson?.scripts;
     const scripts =
       scriptsValue && typeof scriptsValue === 'object'
@@ -39,13 +41,13 @@ export const commandExistsRule: Rule = {
       score: invalid.length
         ? failScore(
             'correctness.command.exists',
-            25,
+            weight,
             0,
             `${invalid.length} documented package script(s) do not exist.`,
           )
         : passScore(
             'correctness.command.exists',
-            25,
+            weight,
             commands.length
               ? 'All documented package scripts exist.'
               : 'No package-script claims found.',

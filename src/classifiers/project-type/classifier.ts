@@ -61,7 +61,7 @@ function inferTypes(repository: RepositorySnapshot): ProjectType[] {
     types.push('api');
   if (
     repository.files.some((file) =>
-      /(?:model[_-]?card|config\.json|\.safetensors$)/i.test(file),
+      /(?:^|\/)(?:model[_-]?card(?:\.md)?|config\.json)$|\.safetensors$/i.test(file),
     )
   )
     types.push('ai-model');

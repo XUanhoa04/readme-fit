@@ -1,5 +1,6 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
+import { ruleWeight } from '../../scoring/weights.js';
 
 function detectLicense(text?: string): string | undefined {
   if (!text) return undefined;
@@ -17,7 +18,8 @@ export const licenseRule: Rule = {
   description:
     'Compares recognizable README license claims with a confidently detected local license.',
   applies: () => true,
-  evaluate: ({ repository, readme }) => {
+  evaluate: ({ repository, readme, project }) => {
+    const weight = ruleWeight('correctness.license.matches', project.primaryType);
     const fileLicense = detectLicense(repository.licenseText);
     const metadataLicense =
       typeof repository.packageJson?.license === 'string'
@@ -45,7 +47,7 @@ export const licenseRule: Rule = {
       return {
         score: passScore(
           'correctness.license.matches',
-          15,
+          weight,
           'README license matches local evidence.',
         ),
         findings: [],
@@ -55,7 +57,7 @@ export const licenseRule: Rule = {
     return {
       score: failScore(
         'correctness.license.matches',
-        15,
+        weight,
         0,
         'README license differs from local evidence.',
       ),

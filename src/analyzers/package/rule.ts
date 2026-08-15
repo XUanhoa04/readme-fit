@@ -1,5 +1,6 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
+import { ruleWeight } from '../../scoring/weights.js';
 
 interface InstallClaim {
   manager: 'npm' | 'pip';
@@ -45,7 +46,8 @@ export const packageNameRule: Rule = {
   description:
     'Compares npm/pip install targets with package metadata; it does not run the installation.',
   applies: ({ repository }) => Boolean(repository.packageJson || repository.pyproject),
-  evaluate: ({ repository, readme }) => {
+  evaluate: ({ repository, readme, project }) => {
+    const weight = ruleWeight('correctness.package-name.matches', project.primaryType);
     const expectedNpm =
       typeof repository.packageJson?.name === 'string'
         ? repository.packageJson.name
@@ -71,13 +73,13 @@ export const packageNameRule: Rule = {
       score: mismatch.length
         ? failScore(
             'correctness.package-name.matches',
-            20,
+            weight,
             0,
             'Install target differs from package metadata.',
           )
         : passScore(
             'correctness.package-name.matches',
-            20,
+            weight,
             'Install target matches package metadata.',
           ),
       findings: mismatch.map((claim) => {

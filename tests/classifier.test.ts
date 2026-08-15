@@ -18,4 +18,12 @@ describe('project classification', () => {
       classifyProject(await inspectRepository(fixture('desktop-app'))).primaryType,
     ).toBe('desktop-app');
   });
+
+  it('does not mistake tsconfig.json for AI model metadata', async () => {
+    const profile = classifyProject(
+      await inspectRepository(path.resolve('.'), ['fixtures/**']),
+    );
+    expect(profile.primaryType).toBe('cli');
+    expect(profile.secondaryTypes).not.toContain('ai-model');
+  });
 });

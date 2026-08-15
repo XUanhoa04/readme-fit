@@ -1,5 +1,6 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
+import { ruleWeight } from '../../scoring/weights.js';
 
 function major(value: string): number | undefined {
   const match = value.match(/(\d+)/);
@@ -13,7 +14,8 @@ export const runtimeRule: Rule = {
     'Compares a documented Node.js minimum major with package engines and version files.',
   applies: ({ repository }) =>
     Boolean(repository.packageJson || repository.nvmrc || repository.nodeVersion),
-  evaluate: ({ repository, readme }) => {
+  evaluate: ({ repository, readme, project }) => {
+    const weight = ruleWeight('correctness.runtime.matches', project.primaryType);
     const readmeMatch = readme.raw.match(
       /Node(?:\.js)?\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)/i,
     );
@@ -40,7 +42,7 @@ export const runtimeRule: Rule = {
       return {
         score: passScore(
           'correctness.runtime.matches',
-          15,
+          weight,
           'README runtime matches repository metadata.',
         ),
         findings: [],
@@ -51,7 +53,7 @@ export const runtimeRule: Rule = {
     return {
       score: failScore(
         'correctness.runtime.matches',
-        15,
+        weight,
         0,
         'README and repository runtime majors differ.',
       ),
