@@ -4,6 +4,9 @@ import { analyzeRepository } from './core/analysis.js';
 import { explainRule } from './rules/registry.js';
 import { renderJson } from './reporters/json.js';
 import { renderTerminal } from './reporters/terminal.js';
+import { GitHubProfileProvider } from './profile/github/github-provider.js';
+import { analyzeProfile } from './profile/analyzer/analyze-profile.js';
+import { renderProfileTerminal } from './profile/reporter.js';
 
 const program = new Command();
 program.name('readme-fit').description('Does your README fit what you built?').version('0.1.0');
@@ -59,6 +62,24 @@ program
       return;
     }
     process.stdout.write(`${rule.id}\n\n${rule.description}\n`);
+  });
+
+program
+  .command('profile')
+  .description('Audit the evidence visible on a public GitHub profile')
+  .argument('<github-user>', 'GitHub username')
+  .option('--json', 'emit machine-readable JSON')
+  .option('--format <format>', 'output format: text or json', 'text')
+  .action(async (username: string, options: { json?: boolean; format: string }) => {
+    try {
+      const report = await analyzeProfile(username, new GitHubProfileProvider());
+      const format = options.json ? 'json' : options.format;
+      if (!['text', 'json'].includes(format)) throw new Error(`Unknown format: ${format}`);
+      process.stdout.write(format === 'json' ? `${JSON.stringify(report, null, 2)}\n` : renderProfileTerminal(report));
+    } catch (error) {
+      process.stderr.write(`readme-fit profile: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 2;
+    }
   });
 
 await program.parseAsync();

@@ -164,3 +164,56 @@ export interface AnalysisReport {
   };
   limitations: string[];
 }
+
+export type ProfileCategory =
+  | 'positioning'
+  | 'proof-of-work'
+  | 'project-selection'
+  | 'scanability'
+  | 'technical-narrative'
+  | 'contact';
+
+export interface PublicRepository {
+  name: string;
+  description: string | null;
+  url: string;
+  language: string | null;
+  topics: string[];
+  stars: number;
+  fork: boolean;
+  archived: boolean;
+  updatedAt: string;
+}
+
+export interface PublicProfileData {
+  login: string;
+  name: string | null;
+  bio: string | null;
+  url: string;
+  blog: string | null;
+  company: string | null;
+  location: string | null;
+  publicRepos: number;
+  followers: number;
+  profileReadme: string | null;
+  repositories: PublicRepository[];
+}
+
+export interface ProfileScore {
+  category: ProfileCategory;
+  score: number;
+  maxScore: number;
+  rules: RuleScore[];
+}
+
+export interface ProfileReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  user: { login: string; name: string | null; url: string };
+  scores: Record<ProfileCategory, ProfileScore>;
+  total: number;
+  findings: Finding[];
+  facts: Record<string, unknown>;
+  limitations: string[];
+  disclaimer: string;
+}
