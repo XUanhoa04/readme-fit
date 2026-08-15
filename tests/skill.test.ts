@@ -18,4 +18,12 @@ describe('agent skill safeguards', () => {
     );
     expect(profile).toMatch(/does not measure the person’s actual skills/i);
   });
+
+  it('keeps network and baseline claims bounded by deterministic evidence', async () => {
+    const skill = await readFile('skills/readme-fit/SKILL.md', 'utf8');
+    const scoring = await readFile('skills/readme-fit/references/scoring.md', 'utf8');
+    expect(skill).toMatch(/Use `--check-links` only when/i);
+    expect(skill).toMatch(/baseline\.newFindings/);
+    expect(scoring).toMatch(/Never describe a network link as healthy/i);
+  });
 });

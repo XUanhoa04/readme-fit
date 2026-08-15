@@ -50,6 +50,7 @@ Node.js >=20 is required.
 npx readme-fit scan
 npx readme-fit scan ./path
 npx readme-fit scan --format json
+npx readme-fit impression
 ```
 
 The scan is local and static by default. Source code is not uploaded, README commands are not run,
@@ -60,7 +61,8 @@ and target modules are not imported.
 - README commands against package scripts.
 - Relative links and image paths against repository files.
 - npm and Python install targets against package metadata.
-- documented Node.js versions against engines and version files.
+- documented Node.js and Python versions against manifests and version files.
+- malformed package metadata that prevents trustworthy verification.
 - recognizable license claims against local license evidence.
 - project type from package manifests, entrypoints, dependencies, and repository layout.
 - hero content, first runnable command, first-success path, and expected output.
@@ -138,6 +140,7 @@ README command       ↔ package.json scripts
 relative path        ↔ repository filesystem
 install target       ↔ package/project name
 Node requirement     ↔ engines, .nvmrc, .node-version
+Python requirement   ↔ pyproject.toml, .python-version
 license claim        ↔ LICENSE and package metadata
 ```
 
@@ -160,6 +163,10 @@ know how to try it, and find trust signals. The result is explicitly labeled:
 > testing.
 
 No eye-tracking or behavioral measurement is implied.
+
+`impression` and `scan --impression` intentionally produce a focused report containing only the
+five heuristic answers, their transparent rule score, and impression priorities. A normal `scan`
+keeps the complete repository audit.
 
 ## Visual proof
 
@@ -209,7 +216,7 @@ repositories as not checked instead of substituting recent projects.
 
 ## Configuration
 
-Create `.readme-fit.yml` in the repository root:
+Create `.readme-fit.yml` or `.readme-fit.yaml` in the repository root:
 
 ```yaml
 version: 1
@@ -228,7 +235,7 @@ rules:
 
 ignore:
   rules:
-    - visual.logo
+    - trust.badges.signal-to-noise
   paths:
     - examples/generated/**
 
@@ -236,9 +243,14 @@ scoring:
   preset: balanced
 ```
 
-The MVP supports `auto` or an explicit project type, custom README paths, category switches,
-ignored rule IDs, ignored repository paths, and the `balanced` preset. The preset field is versioned
-so future presets can evolve without changing the report schema.
+Configuration is validated strictly: unknown keys, project types, presets, non-boolean rule values,
+and unknown ignored rule IDs produce a clear error instead of being silently accepted. Presets
+change weights for different operating contexts:
+
+- `minimal`: emphasize first success and reduce optional presentation weight;
+- `balanced`: use the default project-aware weights;
+- `oss`: emphasize correctness, licensing, maintenance, and contribution evidence;
+- `portfolio`: emphasize positioning, visible proof, and first impression.
 
 ## CI
 
@@ -261,6 +273,29 @@ GitHub Actions example:
 ```
 
 The CLI exits with code `1` for a configured finding threshold and `2` for scan/configuration errors.
+
+For an existing documentation backlog, capture a baseline and fail only on new regressions:
+
+```bash
+npx readme-fit baseline > .readme-fit-baseline.json
+npx readme-fit scan --baseline .readme-fit-baseline.json --fail-on critical
+```
+
+Fingerprints use the rule, source path, and finding title—not the line number—so ordinary README
+line movement does not create a new regression. The report also shows resolved and unchanged
+findings plus category score deltas.
+
+## External links
+
+Default scans never require a network connection. Opt in when URL availability matters:
+
+```bash
+npx readme-fit scan --check-links
+```
+
+External checks use bounded concurrency, a five-second request timeout, redirects, and a GET
+fallback for servers that reject HEAD. Authentication-blocked responses are `unverified`, not
+fabricated as reachable. Response status is checked; linked page or video quality is not analyzed.
 
 ## JSON API
 
@@ -318,7 +353,11 @@ Use the built-in explanation command to inspect a rule:
 
 ```bash
 npx readme-fit explain correctness.command.exists
+npx readme-fit list-rules
 ```
+
+Use `--verbose` to show every applicable rule result or `--quiet` for a compact CI summary. These
+two display modes are mutually exclusive.
 
 ## Architecture
 
@@ -344,18 +383,22 @@ fixtures without a network dependency.
 ## Privacy and safety
 
 Project scans are local by default. `readme-fit` does not upload source, execute scripts, run project
-code, import target modules, build containers, or follow external links. Profile mode reads public
-GitHub information and may use `GITHUB_TOKEN` to increase API limits.
+code, import target modules, or build containers. It follows external links only when the user
+passes `--check-links`. Profile mode reads public GitHub information and may use `GITHUB_TOKEN` to
+increase API limits.
+
+Repository text files used as metadata and READMEs are limited to 1 MiB. Relative links are checked
+against canonical paths so a symlink cannot make a README target appear to remain inside the repo.
 
 There is no `--execute` mode in the MVP.
 
 ## Limitations
 
 - static metadata matching does not prove commands succeed;
-- external URL health is not checked;
+- external URL health is not checked unless `--check-links` is provided;
 - video and remote demo content is not analyzed;
 - license recognition intentionally covers only a small, confident set;
-- Python metadata parsing is deliberately conservative;
+- Python metadata parsing is section-aware but deliberately conservative;
 - flags, runtime API behavior, generated docs, and configuration drift are not verified;
 - profile REST data does not include pinned repository selection;
 - first-impression and semantic recommendations are heuristics, not user research.
@@ -371,11 +414,13 @@ Every report repeats its applicable coverage limitations.
 - [x] JSON report
 - [x] AI Agent Skill
 - [x] GitHub Profile mode
+- [x] baseline regression mode
+- [x] opt-in external link checking
+- [x] Node.js and Python metadata adapters
 - [ ] automatic PR suggestions
 - [ ] README diff regression mode
-- [ ] baseline mode
-- [ ] external link monitoring
-- [ ] more ecosystem metadata adapters
+- [ ] scheduled external link monitoring
+- [ ] Rust, Go, and additional ecosystem metadata adapters
 - [ ] VS Code integration
 - [ ] dedicated GitHub Action package
 - [ ] team-specific rubrics
