@@ -54,16 +54,31 @@ describe('CLI behavior', () => {
     expect(runCli(['explain', 'correctness.command.exists']).stdout).toMatch(
       /without executing/i,
     );
+    const jsonOutput = runCli(['explain', 'correctness.command.exists', '--json']);
+    expect(jsonOutput.status).toBe(0);
+    const parsedExplain = JSON.parse(jsonOutput.stdout) as Record<string, unknown>;
+    expect(parsedExplain.id).toBe('correctness.command.exists');
+    expect(parsedExplain.category).toBe('correctness');
+
     const missing = runCli(['explain', 'nonexistent.rule']);
     expect(missing.status).toBe(2);
     expect(missing.stderr).toContain('Unknown rule');
   });
 
-  it('lists discoverable rule IDs', () => {
+  it('lists discoverable rule IDs in text and JSON formats', () => {
     const result = runCli(['list-rules']);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('correctness.command.exists');
     expect(result.stdout).toContain('onboarding.quick-start.present');
+
+    const jsonResult = runCli(['list-rules', '--json']);
+    expect(jsonResult.status).toBe(0);
+    const parsedRules = JSON.parse(jsonResult.stdout) as Array<{
+      id: string;
+      category: string;
+    }>;
+    expect(Array.isArray(parsedRules)).toBe(true);
+    expect(parsedRules.some((r) => r.id === 'correctness.command.exists')).toBe(true);
   });
 
   it('enforces fail-on severity and category thresholds', () => {

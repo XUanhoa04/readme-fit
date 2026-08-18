@@ -98,11 +98,28 @@ export async function analyzeRepository(
     overall: numeric.length
       ? Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length)
       : 0,
-    findings: findings.sort(
-      (a, b) =>
+    findings: findings.sort((a, b) => {
+      const severityDiff =
         ['critical', 'high', 'medium', 'low', 'info'].indexOf(a.severity) -
-        ['critical', 'high', 'medium', 'low', 'info'].indexOf(b.severity),
-    ),
+        ['critical', 'high', 'medium', 'low', 'info'].indexOf(b.severity);
+      if (severityDiff !== 0) return severityDiff;
+
+      const priorityDiff =
+        ['P0', 'P1', 'P2', 'P3'].indexOf(a.priority) -
+        ['P0', 'P1', 'P2', 'P3'].indexOf(b.priority);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      const pathA = a.source?.path ?? '';
+      const pathB = b.source?.path ?? '';
+      const pathDiff = pathA.localeCompare(pathB);
+      if (pathDiff !== 0) return pathDiff;
+
+      const lineA = a.source?.line ?? 0;
+      const lineB = b.source?.line ?? 0;
+      if (lineA !== lineB) return lineA - lineB;
+
+      return a.id.localeCompare(b.id);
+    }),
     facts,
     coverage: {
       verified: [

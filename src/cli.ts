@@ -148,14 +148,36 @@ program
   .command('explain')
   .description('Explain a rule')
   .argument('<rule-id>')
-  .action((ruleId: string) => {
+  .option('--json', 'emit machine-readable JSON')
+  .option('--format <format>', 'output format: text or json', 'text')
+  .action((ruleId: string, options: { json?: boolean; format: string }) => {
     const rule = explainRule(ruleId);
     if (!rule) {
       process.stderr.write(`Unknown rule: ${ruleId}\n`);
       process.exitCode = 2;
       return;
     }
-    process.stdout.write(`${rule.id}\n\n${rule.description}\n`);
+    const format = options.json ? 'json' : options.format;
+    if (!['text', 'json'].includes(format)) {
+      process.stderr.write(`readme-fit explain: Unknown format: ${format}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    if (format === 'json') {
+      process.stdout.write(
+        `${JSON.stringify(
+          {
+            id: rule.id,
+            category: rule.category,
+            description: rule.description,
+          },
+          null,
+          2,
+        )}\n`,
+      );
+    } else {
+      process.stdout.write(`${rule.id}\n\n${rule.description}\n`);
+    }
   });
 
 program
@@ -185,14 +207,32 @@ program
 program
   .command('list-rules')
   .description('List rule IDs, categories, and explanations')
-  .action(() => {
-    process.stdout.write(
-      `${getRules()
-        .map(
-          (rule) => `${rule.id.padEnd(42)} ${rule.category.padEnd(14)} ${rule.description}`,
-        )
-        .join('\n')}\n`,
-    );
+  .option('--json', 'emit machine-readable JSON')
+  .option('--format <format>', 'output format: text or json', 'text')
+  .action((options: { json?: boolean; format: string }) => {
+    const rules = getRules().map((rule) => ({
+      id: rule.id,
+      category: rule.category,
+      description: rule.description,
+    }));
+    const format = options.json ? 'json' : options.format;
+    if (!['text', 'json'].includes(format)) {
+      process.stderr.write(`readme-fit list-rules: Unknown format: ${format}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    if (format === 'json') {
+      process.stdout.write(`${JSON.stringify(rules, null, 2)}\n`);
+    } else {
+      process.stdout.write(
+        `${rules
+          .map(
+            (rule) =>
+              `${rule.id.padEnd(42)} ${rule.category.padEnd(14)} ${rule.description}`,
+          )
+          .join('\n')}\n`,
+      );
+    }
   });
 
 await program.parseAsync();
