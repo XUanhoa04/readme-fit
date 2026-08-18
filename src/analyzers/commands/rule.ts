@@ -11,8 +11,8 @@ interface CommandReference {
 function npmCommands(value: string, startLine: number): CommandReference[] {
   const results: CommandReference[] = [];
   value.split(/\r?\n/).forEach((line, index) => {
-    const run = line.match(/(?:^|[;&|]\s*)(?:npm|pnpm|yarn)\s+run\s+([\w:.-]+)/);
-    const shorthand = line.match(/(?:^|[;&|]\s*)npm\s+(test|start)\b/);
+    const run = line.match(/(?:^|[;&|]\s*)(?:npm|pnpm|yarn|bun)\s+run\s+([\w:.-]+)/);
+    const shorthand = line.match(/(?:^|[;&|]\s*)(?:npm|bun)\s+(test|start)\b/);
     const match = run ?? shorthand;
     if (match?.[1])
       results.push({ command: line.trim(), script: match[1], line: startLine + index + 1 });

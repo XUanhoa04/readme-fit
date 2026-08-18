@@ -44,7 +44,22 @@ function inferTypes(repository: RepositorySnapshot): ProjectType[] {
   if (repository.files.some((file) => /^action\.ya?ml$/i.test(file)))
     types.push('github-action');
   if (record(pkg.engines).vscode || pkg.contributes) types.push('vscode-extension');
-  if (pkg.bin && Object.keys(record(pkg.bin)).length > 0)
+  const hasNodeCli = Boolean(pkg.bin && Object.keys(record(pkg.bin)).length > 0);
+  const hasPythonCli = Boolean(
+    repository.pyproject &&
+    /(?:\[project\.scripts\]|\[tool\.poetry\.scripts\])/i.test(repository.pyproject),
+  );
+  const hasRustCli = Boolean(
+    repository.cargoToml &&
+    (/(?:\[\[bin\]\])/i.test(repository.cargoToml) ||
+      repository.files.includes('src/main.rs')),
+  );
+  const hasGoCli = Boolean(
+    repository.goMod &&
+    (repository.files.includes('main.go') ||
+      repository.files.some((file) => /^cmd\/.*main\.go$/i.test(file))),
+  );
+  if (hasNodeCli || hasPythonCli || hasRustCli || hasGoCli)
     types.push('cli', 'developer-tool');
   if (deps.has('electron') || repository.files.includes('src-tauri/tauri.conf.json'))
     types.push('desktop-app');
@@ -112,6 +127,14 @@ export function classifyProject(
     repository.files.includes('package-lock.json') ? 'npm' : '',
     repository.files.includes('pnpm-lock.yaml') ? 'pnpm' : '',
     repository.files.includes('yarn.lock') ? 'yarn' : '',
+    repository.files.includes('bun.lockb') || repository.files.includes('bun.lock')
+      ? 'bun'
+      : '',
+    repository.files.includes('deno.json') ||
+    repository.files.includes('deno.jsonc') ||
+    repository.files.includes('deno.lock')
+      ? 'deno'
+      : '',
     repository.files.includes('uv.lock') ? 'uv' : '',
     repository.files.includes('poetry.lock') ? 'poetry' : '',
     repository.pyproject &&

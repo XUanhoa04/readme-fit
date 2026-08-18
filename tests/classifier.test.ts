@@ -26,4 +26,35 @@ describe('project classification', () => {
     expect(profile.primaryType).toBe('cli');
     expect(profile.secondaryTypes).not.toContain('ai-model');
   });
+
+  it('detects bun and deno package managers and non-Node CLI entrypoints', () => {
+    const bunProfile = classifyProject({
+      root: '/mock',
+      files: ['bun.lockb', 'package.json', 'src/index.ts'],
+      packageJson: { name: 'bun-app' },
+    });
+    expect(bunProfile.packageManagers).toContain('bun');
+
+    const denoProfile = classifyProject({
+      root: '/mock',
+      files: ['deno.json', 'main.ts'],
+    });
+    expect(denoProfile.packageManagers).toContain('deno');
+
+    const rustCliProfile = classifyProject({
+      root: '/mock',
+      files: ['Cargo.toml', 'src/main.rs'],
+      cargoToml: '[package]\nname = "my-cli"\n',
+    });
+    expect(rustCliProfile.primaryType).toBe('cli');
+    expect(rustCliProfile.hasCli).toBe(true);
+
+    const pythonCliProfile = classifyProject({
+      root: '/mock',
+      files: ['pyproject.toml', 'src/tool/__init__.py'],
+      pyproject: '[project.scripts]\nmy-cmd = "tool.cli:main"\n',
+    });
+    expect(pythonCliProfile.primaryType).toBe('cli');
+    expect(pythonCliProfile.hasCli).toBe(true);
+  });
 });
