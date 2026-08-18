@@ -10,28 +10,54 @@ interface InstallClaim {
   line: number;
 }
 
+function extractArg(argsString: string): string | undefined {
+  const tokens = argsString.trim().split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    if (token.startsWith('-')) continue;
+    const cleaned = token
+      .replace(/==.*$/, '')
+      .replace(/@[\d^~v].*$/, '')
+      .replace(/\[.*\]$/, '');
+    if (cleaned && /^@?[\w.-]+(?:\/[\w.-]+)?$/.test(cleaned)) {
+      return cleaned;
+    }
+  }
+  return undefined;
+}
+
 function claims(blocks: Array<{ value: string; line: number }>): InstallClaim[] {
   const output: InstallClaim[] = [];
   for (const block of blocks) {
     block.value.split(/\r?\n/).forEach((line, index) => {
-      const npm = line.match(
-        /(?:npm\s+(?:install|i)|pnpm\s+add|yarn\s+add)\s+(?:-[gD]\s+)?(@?[\w.-]+(?:\/[\w.-]+)?)/,
+      const clean = line.trim().replace(/^\$\s*/, '');
+      const npm = clean.match(
+        /^(?:npm\s+(?:install|i|add)|pnpm\s+(?:add|i|install)|yarn\s+(?:add|install)|bun\s+(?:add|i|install))\s+(.+)$/i,
       );
-      const pip = line.match(/(?:pip(?:3)?\s+install|uv\s+add)\s+([\w.-]+)/);
-      if (npm?.[1])
-        output.push({
-          manager: 'npm',
-          name: npm[1],
-          command: line.trim(),
-          line: block.line + index + 1,
-        });
-      if (pip?.[1])
-        output.push({
-          manager: 'pip',
-          name: pip[1],
-          command: line.trim(),
-          line: block.line + index + 1,
-        });
+      const pip = clean.match(
+        /^(?:pip3?\s+install|python3?\s+-m\s+pip\s+install|uv\s+(?:add|pip\s+install)|poetry\s+add)\s+(.+)$/i,
+      );
+      if (npm?.[1]) {
+        const name = extractArg(npm[1]);
+        if (name) {
+          output.push({
+            manager: 'npm',
+            name,
+            command: line.trim(),
+            line: block.line + index + 1,
+          });
+        }
+      }
+      if (pip?.[1]) {
+        const name = extractArg(pip[1]);
+        if (name) {
+          output.push({
+            manager: 'pip',
+            name,
+            command: line.trim(),
+            line: block.line + index + 1,
+          });
+        }
+      }
     });
   }
   return output;

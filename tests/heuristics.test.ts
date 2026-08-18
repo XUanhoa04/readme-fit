@@ -20,6 +20,27 @@ describe('onboarding command classification', () => {
     const readme = parseReadme('# Tool\n\n```bash\npip install tool\n```');
     expect(firstSuccessCommand(readme)).toBeUndefined();
   });
+
+  it('classifies bun, poetry, and uv commands properly', () => {
+    const readme = parseReadme(`
+# Modern Tool
+
+\`\`\`bash
+bun add -d my-tool
+poetry add "requests[security]"
+uv pip install --upgrade pkg
+bunx my-tool scan
+\`\`\`
+`);
+    const commands = runnableCommands(readme);
+    expect(commands.map((c) => ({ command: c.command, kind: c.kind }))).toEqual([
+      { command: 'bun add -d my-tool', kind: 'install' },
+      { command: 'poetry add "requests[security]"', kind: 'install' },
+      { command: 'uv pip install --upgrade pkg', kind: 'install' },
+      { command: 'bunx my-tool scan', kind: 'usage' },
+    ]);
+    expect(firstSuccessCommand(readme)?.command).toBe('bunx my-tool scan');
+  });
 });
 
 describe('WHY heuristic', () => {

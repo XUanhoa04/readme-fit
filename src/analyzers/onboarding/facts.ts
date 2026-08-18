@@ -10,9 +10,9 @@ export interface RunnableCommand {
 }
 
 const INSTALL =
-  /^(?:\$\s*)?(?:npm\s+(?:i|install)|pnpm\s+add|yarn\s+add|pip3?\s+install|uv\s+add|cargo\s+install|go\s+install)\b/i;
+  /^(?:\$\s*)?(?:npm\s+(?:i|install|add)|pnpm\s+(?:add|i|install)|yarn\s+(?:add|install)|bun\s+(?:add|i|install)|pip3?\s+install|python(?:3)?\s+-m\s+pip\s+install|uv\s+(?:add|pip\s+install)|poetry\s+add|cargo\s+install|go\s+install)\b/i;
 const USAGE =
-  /^(?:\$\s*)?(?:npx\b|npm\s+(?:run|test|start)\b|pnpm\s+(?!add\b|install\b)|yarn\s+(?!add\b|install\b)|uv\s+(?:run|tool\s+run)\b|cargo\s+run\b|go\s+run\b|docker(?:-compose|\s+compose)?\b|[\w.-]+\s+(?:scan|run|start|init|check)\b)/i;
+  /^(?:\$\s*)?(?:npx\b|bunx\b|npm\s+(?:run|test|start)\b|pnpm\s+(?!add\b|install\b)|yarn\s+(?!add\b|install\b)|bun\s+(?!add\b|install\b)|uv\s+(?:run|tool\s+run)\b|poetry\s+run\b|cargo\s+run\b|go\s+run\b|docker(?:-compose|\s+compose)?\b|[\w.-]+\s+(?:scan|run|start|init|check)\b)/i;
 
 export function runnableCommands(readme: ReadmeDocument): RunnableCommand[] {
   const commands: RunnableCommand[] = [];
