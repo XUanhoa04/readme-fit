@@ -34,3 +34,14 @@ export function pythonRuntimeConstraint(pyproject?: string): string | undefined 
     pyprojectValue(pyproject, 'tool.poetry.dependencies', 'python')
   );
 }
+
+export function pythonLicense(pyproject?: string): string | undefined {
+  if (!pyproject) return undefined;
+  const projectLicense = pyprojectValue(pyproject, 'project', 'license');
+  if (projectLicense) return projectLicense;
+  const textMatch = /^\s*license\s*=\s*\{\s*text\s*=\s*["']([^"']+)["']\s*\}\s*$/m.exec(
+    pyproject,
+  );
+  if (textMatch?.[1]) return textMatch[1];
+  return pyprojectValue(pyproject, 'tool.poetry', 'license');
+}

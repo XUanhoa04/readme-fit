@@ -68,4 +68,35 @@ describe('analysis edge cases and scoring math', () => {
       Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length),
     );
   });
+
+  it('recognizes BSD, MPL, Unlicense and pyproject.toml license metadata', async () => {
+    await temporaryRepository(
+      {
+        'README.md': '# Project\n\nLicense: BSD-3-Clause\n',
+        LICENSE:
+          'Redistribution and use in source and binary forms\nNeither the name of the copyright holder nor the names of its contributors may be used\n',
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        const licenseRuleResult = report.scores.correctness?.rules.find(
+          (r) => r.id === 'correctness.license.matches',
+        );
+        expect(licenseRuleResult?.status).toBe('pass');
+      },
+    );
+
+    await temporaryRepository(
+      {
+        'README.md': '# Python Project\n\nUnder the MIT License.\n',
+        'pyproject.toml': '[project]\nname = "my-py-proj"\nlicense = "MIT"\n',
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        const licenseRuleResult = report.scores.correctness?.rules.find(
+          (r) => r.id === 'correctness.license.matches',
+        );
+        expect(licenseRuleResult?.status).toBe('pass');
+      },
+    );
+  });
 });
