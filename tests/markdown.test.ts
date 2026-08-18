@@ -14,4 +14,24 @@ describe('Markdown AST parser', () => {
       true,
     );
   });
+
+  it('extracts HTML anchor links and preserves HTML image alt text', () => {
+    const raw = `
+# Project
+
+<a href="https://example.com/docs">Read the documentation</a>
+<a href="./CONTRIBUTING.md">Contributing Guide</a>
+<img src="./assets/banner.png" alt="Project Banner" width="600" />
+`;
+    const doc = parseReadme(raw);
+    const htmlLinks = doc.links.filter((link) => link.html && !link.image);
+    expect(htmlLinks).toHaveLength(2);
+    expect(htmlLinks[0]?.url).toBe('https://example.com/docs');
+    expect(htmlLinks[1]?.url).toBe('./CONTRIBUTING.md');
+
+    const htmlImages = doc.images.filter((img) => img.html);
+    expect(htmlImages).toHaveLength(1);
+    expect(htmlImages[0]?.url).toBe('./assets/banner.png');
+    expect(htmlImages[0]?.text).toBe('Project Banner');
+  });
 });

@@ -50,7 +50,7 @@ export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
       codeBlocks.push(block);
     } else if (item.type === 'link') {
       links.push({
-        url: item.url,
+        url: item.url.trim(),
         text: textOf(item),
         line: lineOf(item),
         image: false,
@@ -58,7 +58,7 @@ export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
       });
     } else if (item.type === 'image') {
       const image = {
-        url: item.url,
+        url: item.url.trim(),
         text: item.alt ?? '',
         line: lineOf(item),
         image: true,
@@ -69,16 +69,35 @@ export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
     } else if (item.type === 'html') {
       htmlBlocks.push({ value: item.value, line: lineOf(item) });
       details += /<details\b/i.test(item.value) ? 1 : 0;
-      for (const match of item.value.matchAll(/<img\b[^>]*?src=["']([^"']+)["'][^>]*>/gi)) {
+      for (const match of item.value.matchAll(
+        /<img\b([^>]*?)src=["']([^"']+)["']([^>]*)>/gi,
+      )) {
+        const fullAttrs = `${match[1] ?? ''} ${match[3] ?? ''}`;
+        const altMatch = /alt=["']([^"']*)["']/i.exec(fullAttrs);
         const image = {
-          url: match[1] ?? '',
-          text: '',
+          url: (match[2] ?? '').trim(),
+          text: altMatch?.[1] ?? '',
           line: lineOf(item),
           image: true,
           html: true,
         };
         images.push(image);
         links.push(image);
+      }
+      for (const match of item.value.matchAll(/<a\b[^>]*?href=["']([^"']+)["'][^>]*>/gi)) {
+        const fullBlockMatch = new RegExp(
+          `<a\\b[^>]*?href=["']${match[1]?.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}["'][^>]*>(.*?)<\\/a>`,
+          'is',
+        ).exec(item.value);
+        const text = fullBlockMatch?.[1]?.replace(/<[^>]+>/g, '').trim() ?? '';
+        const link = {
+          url: (match[1] ?? '').trim(),
+          text,
+          line: lineOf(item),
+          image: false,
+          html: true,
+        };
+        links.push(link);
       }
     } else if (item.type === 'list') lists += 1;
     else if (item.type === 'blockquote') blockquotes += 1;
