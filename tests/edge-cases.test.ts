@@ -69,6 +69,29 @@ describe('analysis edge cases and scoring math', () => {
     );
   });
 
+  it('keeps every rule and report score inside the documented range', async () => {
+    await temporaryRepository(
+      {
+        'README.md':
+          '# Project\n\nA useful project for maintainers.\n\n### Skipped\n\nBody.\n',
+        '.readme-fit.yml': 'scoring:\n  preset: minimal\n',
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        for (const category of Object.values(report.scores)) {
+          if (!category) continue;
+          expect(category.score === null || category.score <= 100).toBe(true);
+          for (const rule of category.rules) {
+            expect(rule.earned).toBeGreaterThanOrEqual(0);
+            expect(rule.earned).toBeLessThanOrEqual(rule.weight);
+          }
+        }
+        expect(report.overall).toBeGreaterThanOrEqual(0);
+        expect(report.overall).toBeLessThanOrEqual(100);
+      },
+    );
+  });
+
   it('recognizes BSD, MPL, Unlicense and pyproject.toml license metadata', async () => {
     await temporaryRepository(
       {

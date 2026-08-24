@@ -170,5 +170,11 @@ export async function loadConfig(
 }
 
 export function resolveReadme(root: string, config: ReadmeFitConfig): string {
-  return path.resolve(root, config.readme.path);
+  const resolvedRoot = path.resolve(root);
+  const resolvedReadme = path.resolve(resolvedRoot, config.readme.path);
+  const relative = path.relative(resolvedRoot, resolvedReadme);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('readme.path must resolve inside the repository root.');
+  }
+  return resolvedReadme;
 }

@@ -18,6 +18,7 @@ const DEFAULT_IGNORES = [
 ];
 
 export const MAX_INSPECTED_TEXT_BYTES = 1_048_576;
+export const MAX_INSPECTED_FILES = 10_000;
 
 async function readOptional(root: string, relative: string): Promise<string | undefined> {
   try {
@@ -36,26 +37,35 @@ async function readOptional(root: string, relative: string): Promise<string | un
   }
 }
 
-async function collectFiles(root: string, extraIgnores: string[] = []): Promise<string[]> {
+async function collectFiles(
+  root: string,
+  extraIgnores: string[] = [],
+): Promise<{ files: string[]; truncated: boolean }> {
   const matcher = ignore().add(DEFAULT_IGNORES).add(extraIgnores);
   const gitignore = await readOptional(root, '.gitignore');
   if (gitignore) matcher.add(gitignore);
   const files: string[] = [];
+  let truncated = false;
 
   async function walk(relative: string): Promise<void> {
+    if (truncated) return;
     const entries = await readdir(path.join(root, relative), { withFileTypes: true });
     for (const entry of entries) {
+      if (files.length >= MAX_INSPECTED_FILES) {
+        truncated = true;
+        return;
+      }
       const next = path.posix.join(relative.replaceAll('\\', '/'), entry.name);
       const ignoredPath = entry.isDirectory() ? `${next}/` : next;
       if (matcher.ignores(ignoredPath)) continue;
       if (entry.isDirectory()) await walk(next);
       else if (entry.isFile()) files.push(next);
-      if (files.length >= 10_000) return;
+      if (truncated) return;
     }
   }
 
   await walk('');
-  return files.sort();
+  return { files: files.sort(), truncated };
 }
 
 export async function inspectRepository(
@@ -63,7 +73,8 @@ export async function inspectRepository(
   extraIgnores: string[] = [],
 ): Promise<RepositorySnapshot> {
   const root = path.resolve(rootInput);
-  const files = await collectFiles(root, extraIgnores);
+  const collected = await collectFiles(root, extraIgnores);
+  const { files } = collected;
   const packageRaw = await readOptional(root, 'package.json');
   let packageJson: Record<string, unknown> | undefined;
   const metadataIssues: Array<{ path: string; message: string }> = [];
@@ -78,7 +89,15 @@ export async function inspectRepository(
       });
     }
   }
-  const snapshot: RepositorySnapshot = { root, files, metadataIssues };
+  const snapshot: RepositorySnapshot = {
+    root,
+    files,
+    metadataIssues,
+    inspection: {
+      fileLimit: MAX_INSPECTED_FILES,
+      truncated: collected.truncated,
+    },
+  };
   if (packageJson) snapshot.packageJson = packageJson;
   const optional: Array<[keyof RepositorySnapshot, string]> = [
     ['pyproject', 'pyproject.toml'],

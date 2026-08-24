@@ -35,6 +35,7 @@ describe('untrusted repository hardening', () => {
       ],
       fetcher,
       2,
+      { resolveHost: () => Promise.resolve(['93.184.216.34']) },
     );
 
     expect(results).toEqual(
@@ -54,12 +55,41 @@ describe('untrusted repository hardening', () => {
         }),
         expect.objectContaining({
           url: 'https://example.test/error',
-          status: 'broken',
+          status: 'unverified',
         }),
       ]),
     );
     expect(results).toHaveLength(5);
     expect(fetcher).toHaveBeenCalledTimes(6);
+  });
+
+  it('skips private destinations before issuing a request', async () => {
+    const fetcher = vi.fn(() => Promise.resolve(response(200))) as typeof fetch;
+    const results = await checkExternalLinks(
+      ['http://127.0.0.1/admin', 'http://169.254.169.254/latest/meta-data'],
+      fetcher,
+    );
+    expect(results.every((result) => result.status === 'skipped')).toBe(true);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('revalidates redirect destinations before following them', async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve(
+        new Response(null, {
+          status: 302,
+          headers: { Location: 'http://127.0.0.1/private' },
+        }),
+      ),
+    ) as typeof fetch;
+    const results = await checkExternalLinks(
+      ['https://example.test/redirect'],
+      fetcher,
+      1,
+      { resolveHost: () => Promise.resolve(['93.184.216.34']) },
+    );
+    expect(results[0]?.status).toBe('skipped');
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it('does not perform network checks in a default scan', async () => {
@@ -100,6 +130,22 @@ describe('untrusted repository hardening', () => {
       await expect(analyzeRepository(repository)).rejects.toThrow(/inspection limit/i);
     } finally {
       await rm(repository, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects configured README paths and symlinks outside the repository', async () => {
+    const temporary = await mkdtemp(path.join(tmpdir(), 'readme-fit-readme-path-'));
+    const repository = path.join(temporary, 'repo');
+    try {
+      await mkdir(repository);
+      await writeFile(path.join(temporary, 'outside.md'), '# Outside\n');
+      await writeFile(
+        path.join(repository, '.readme-fit.yml'),
+        'readme:\n  path: ../outside.md\n',
+      );
+      await expect(analyzeRepository(repository)).rejects.toThrow(/inside.*root/i);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
     }
   });
 });

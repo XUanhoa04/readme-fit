@@ -89,6 +89,12 @@ describe('CLI behavior', () => {
     expect(runCli(['scan', 'fixtures/good-cli', '--fail-on', 'critical']).status).toBe(0);
   });
 
+  it('rejects unknown fail-on values instead of silently passing CI', () => {
+    const result = runCli(['scan', 'fixtures/stale-cli', '--fail-on', 'corectness']);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/Unknown --fail-on value/i);
+  });
+
   it('captures baselines and fails CI only for new regressions', () => {
     const temporary = mkdtempSync(path.join(tmpdir(), 'readme-fit-baseline-'));
     try {

@@ -5,6 +5,7 @@ import type {
   Finding,
   Priority,
   Severity,
+  RuleScore,
 } from '../models/index.js';
 
 export function finding(input: {
@@ -48,4 +49,19 @@ export function failScore(id: string, weight: number, earned: number, explanatio
 
 export function naScore(id: string, explanation: string) {
   return { id, status: 'not_applicable' as const, weight: 0, earned: 0, explanation };
+}
+
+export function normalizeRuleScore(score: RuleScore): RuleScore {
+  if (!Number.isFinite(score.weight) || score.weight < 0) {
+    throw new Error(
+      `Rule ${score.id} returned an invalid weight: ${String(score.weight)}.`,
+    );
+  }
+  if (!Number.isFinite(score.earned)) {
+    throw new Error(
+      `Rule ${score.id} returned invalid earned points: ${String(score.earned)}.`,
+    );
+  }
+  const earned = Math.min(score.weight, Math.max(0, score.earned));
+  return earned === score.earned ? score : { ...score, earned };
 }

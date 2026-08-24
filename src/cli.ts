@@ -16,6 +16,27 @@ import { renderProfileTerminal } from './profile/reporter.js';
 import { VERSION } from './version.js';
 
 const program = new Command();
+const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
+const SCAN_CATEGORIES = [
+  'correctness',
+  'completeness',
+  'onboarding',
+  'clarity',
+  'impression',
+  'visual-proof',
+  'trust',
+] as const;
+
+function validateFailOn(value: string | undefined): void {
+  if (
+    value &&
+    !SEVERITIES.includes(value as (typeof SEVERITIES)[number]) &&
+    !SCAN_CATEGORIES.includes(value as (typeof SCAN_CATEGORIES)[number])
+  ) {
+    throw new Error(`Unknown --fail-on value: ${value}. Expected a severity or category.`);
+  }
+}
+
 program
   .name('readme-fit')
   .description('Does your README fit what you built?')
@@ -48,6 +69,7 @@ program
       },
     ) => {
       try {
+        validateFailOn(options.failOn);
         const report = await analyzeRepository(repositoryPath, {
           checkLinks: Boolean(options.checkLinks),
         });
@@ -76,12 +98,13 @@ program
         );
         if (options.failOn) {
           const candidateFindings = report.baseline?.newFindings ?? report.findings;
-          const severities = ['critical', 'high', 'medium', 'low', 'info'];
-          if (severities.includes(options.failOn)) {
-            const threshold = severities.indexOf(options.failOn);
+          if (SEVERITIES.includes(options.failOn as (typeof SEVERITIES)[number])) {
+            const threshold = SEVERITIES.indexOf(
+              options.failOn as (typeof SEVERITIES)[number],
+            );
             if (
               candidateFindings.some(
-                (finding) => severities.indexOf(finding.severity) <= threshold,
+                (finding) => SEVERITIES.indexOf(finding.severity) <= threshold,
               )
             )
               process.exitCode = 1;

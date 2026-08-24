@@ -123,6 +123,10 @@ export interface ReadmeDocument {
 export interface RepositorySnapshot {
   root: string;
   files: string[];
+  inspection: {
+    fileLimit: number;
+    truncated: boolean;
+  };
   packageJson?: Record<string, unknown>;
   pyproject?: string;
   cargoToml?: string;
@@ -151,6 +155,7 @@ export interface CategoryScore {
 
 export interface BaselineFinding {
   fingerprint: string;
+  subject: string;
   id: string;
   title: string;
   category: Category;
@@ -159,7 +164,8 @@ export interface BaselineFinding {
 }
 
 export interface BaselineFile {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  fingerprintVersion: 1 | 2;
   createdAt: string;
   projectType: ProjectType;
   scores: Partial<Record<Category, number | null>>;
@@ -167,7 +173,7 @@ export interface BaselineFile {
 }
 
 export interface BaselineComparison {
-  schemaVersion: 1;
+  schemaVersion: 2;
   newFindings: Finding[];
   resolvedFindings: BaselineFinding[];
   unchangedFindings: number;

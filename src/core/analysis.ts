@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { loadConfig, resolveReadme } from './config/config.js';
 import { parseReadme } from './markdown/parser.js';
@@ -7,6 +7,12 @@ import type { AnalysisReport, CategoryScore, ProjectProfile } from '../models/in
 import { getRules } from '../rules/registry.js';
 import { classifyProject } from '../classifiers/project-type/classifier.js';
 import '../rules/builtin.js';
+import { normalizeRuleScore } from '../rules/helpers.js';
+
+function isInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
 
 export interface AnalysisOptions {
   checkLinks?: boolean;
@@ -28,9 +34,19 @@ export async function analyzeRepository(
         `${path.relative(root, readmePath)} exceeds the ${MAX_INSPECTED_TEXT_BYTES}-byte static inspection limit.`,
       );
     }
-    raw = await readFile(readmePath, 'utf8');
+    const [canonicalRoot, canonicalReadme] = await Promise.all([
+      realpath(root),
+      realpath(readmePath),
+    ]);
+    if (!isInside(canonicalRoot, canonicalReadme)) {
+      throw new Error('Configured README resolves outside the repository root.');
+    }
+    raw = await readFile(canonicalReadme, 'utf8');
   } catch (error) {
-    if (error instanceof Error && /static inspection limit/.test(error.message))
+    if (
+      error instanceof Error &&
+      /static inspection limit|outside the repository root/.test(error.message)
+    )
       throw error;
     throw new Error(`README not found: ${path.relative(root, readmePath)}`);
   }
@@ -45,7 +61,10 @@ export async function analyzeRepository(
   };
   const findings = [];
   const scores: AnalysisReport['scores'] = {};
-  const facts: Record<string, unknown> = { fileCount: repository.files.length };
+  const facts: Record<string, unknown> = {
+    fileCount: repository.files.length,
+    repositoryInspection: repository.inspection,
+  };
   for (const rule of getRules()) {
     const configKey =
       rule.category === 'visual-proof'
@@ -61,12 +80,15 @@ export async function analyzeRepository(
       continue;
     const result = await rule.evaluate(context);
     findings.push(...result.findings);
-    Object.assign(facts, result.facts);
+    for (const [key, value] of Object.entries(result.facts ?? {})) {
+      if (key in facts) throw new Error(`Duplicate analysis fact key: ${key}`);
+      facts[key] = value;
+    }
     const category = rule.category;
     const existing =
       scores[category] ??
       ({ category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore);
-    existing.rules.push(result.score);
+    existing.rules.push(normalizeRuleScore(result.score));
     scores[category] = existing;
   }
   for (const score of Object.values(scores)) {
@@ -132,6 +154,9 @@ export async function analyzeRepository(
         ...(!options.checkLinks ? ['external URL health'] : []),
         'commands were not executed',
         'demo/video content',
+        ...(repository.inspection.truncated
+          ? [`files beyond the ${repository.inspection.fileLimit}-file inspection limit`]
+          : []),
       ],
     },
     limitations: [
@@ -139,6 +164,11 @@ export async function analyzeRepository(
       options.checkLinks
         ? 'External URL responses were checked, but linked content quality was not analyzed.'
         : 'External URLs and linked media content are not fetched by default.',
+      ...(repository.inspection.truncated
+        ? [
+            `Repository inspection stopped at ${repository.inspection.fileLimit} files; classification and evidence may be incomplete.`,
+          ]
+        : []),
     ],
   };
 }
