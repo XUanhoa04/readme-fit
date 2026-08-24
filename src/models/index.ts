@@ -259,6 +259,12 @@ export interface BaselineComparison {
   scoreDeltas: Partial<Record<Category, number | null>>;
 }
 
+export interface DiffComparison {
+  base: string;
+  changedFiles: string[];
+  findings: Finding[];
+}
+
 export interface AnalysisReport {
   schemaVersion: 2;
   generatedAt: string;
@@ -277,6 +283,7 @@ export interface AnalysisReport {
   limitations: string[];
   evidenceGraph: EvidenceGraph;
   baseline?: BaselineComparison;
+  diff?: DiffComparison;
 }
 
 export type ProfileCategory =

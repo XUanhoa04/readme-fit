@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeRepository } from './core/analysis.js';
 import { compareBaseline, createBaseline, loadBaseline } from './core/baseline.js';
 import { explainRule, getRules } from './rules/registry.js';
 import { renderJson } from './reporters/json.js';
+import { renderSarif } from './reporters/sarif.js';
+import { renderGitHub } from './reporters/github.js';
 import {
   renderImpressionJson,
   renderImpressionTerminal,
@@ -14,6 +17,8 @@ import { GitHubProfileProvider } from './profile/github/github-provider.js';
 import { analyzeProfile } from './profile/analyzer/analyze-profile.js';
 import { renderProfileTerminal } from './profile/reporter.js';
 import { VERSION } from './version.js';
+import { attachDiff, changedFilesSince, reportFindings } from './core/git-diff.js';
+import { writeOutput } from './core/output.js';
 
 const program = new Command();
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
@@ -37,6 +42,41 @@ function validateFailOn(value: string | undefined): void {
   }
 }
 
+function scoreGate(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+    throw new Error('--fail-on-score must be an integer from 0 through 100.');
+  }
+  return parsed;
+}
+
+function findingLimit(value: string | undefined): number {
+  if (value === undefined) return Infinity;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error('--max-findings must be a non-negative integer.');
+  }
+  return parsed;
+}
+
+function stripAnsi(value: string): string {
+  const pattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
+  return value.replace(pattern, '');
+}
+
+function limitedReport(
+  report: Awaited<ReturnType<typeof analyzeRepository>>,
+  limit: number,
+) {
+  if (!Number.isFinite(limit)) return report;
+  const copy = structuredClone(report);
+  copy.findings = copy.findings.slice(0, limit);
+  if (copy.diff) copy.diff.findings = copy.diff.findings.slice(0, limit);
+  if (copy.baseline) copy.baseline.newFindings = copy.baseline.newFindings.slice(0, limit);
+  return copy;
+}
+
 program
   .name('readme-fit')
   .description('Does your README fit what you built?')
@@ -47,15 +87,23 @@ program
   .description('Statically audit a repository README')
   .argument('[path]', 'repository path', '.')
   .option('--json', 'emit machine-readable JSON')
-  .option('--format <format>', 'output format: text or json', 'text')
+  .option('--format <format>', 'output format: text, json, sarif, or github', 'text')
   .option('--impression', 'show only the first-impression report')
   .option('--check-links', 'check external HTTP links with bounded network requests')
   .option('--project <path>', 'select a package directory inside a monorepo')
   .option('--readme <path>', 'override the README path inside the selected project')
   .option('--baseline <file>', 'compare against a previously captured baseline')
+  .option(
+    '--changed-since <ref>',
+    'report findings attached to files changed since a Git ref',
+  )
   .option('--verbose', 'show every applicable rule result')
   .option('--quiet', 'show only the overall score and critical findings')
+  .option('--output <file>', 'write output atomically instead of printing to stdout')
+  .option('--max-findings <count>', 'limit emitted findings')
+  .option('--no-color', 'disable ANSI color output')
   .option('--fail-on <level>', 'exit non-zero on a category or severity')
+  .option('--fail-on-score <score>', 'exit non-zero when the overall score is lower')
   .action(
     async (
       repositoryPath: string,
@@ -67,13 +115,23 @@ program
         project?: string;
         readme?: string;
         baseline?: string;
+        changedSince?: string;
         verbose?: boolean;
         quiet?: boolean;
+        output?: string;
+        maxFindings?: string;
+        color: boolean;
         failOn?: string;
+        failOnScore?: string;
       },
     ) => {
       try {
         validateFailOn(options.failOn);
+        const minimumScore = scoreGate(options.failOnScore);
+        const maximumFindings = findingLimit(options.maxFindings);
+        if (options.baseline && options.changedSince) {
+          throw new Error('--baseline and --changed-since cannot be used together.');
+        }
         const report = await analyzeRepository(repositoryPath, {
           checkLinks: Boolean(options.checkLinks),
           ...(options.project ? { projectPath: options.project } : {}),
@@ -85,25 +143,41 @@ program
             await loadBaseline(path.resolve(options.baseline)),
           );
         }
+        if (options.changedSince) {
+          const changed = await changedFilesSince(repositoryPath, options.changedSince);
+          attachDiff(report, options.changedSince, changed, options.project);
+        }
         const format = options.json ? 'json' : options.format;
-        if (!['text', 'json'].includes(format))
+        if (options.json && options.format !== 'text') {
+          throw new Error('--json and --format cannot be used together.');
+        }
+        if (!['text', 'json', 'sarif', 'github'].includes(format))
           throw new Error(`Unknown format: ${format}`);
+        if (options.impression && !['text', 'json'].includes(format)) {
+          throw new Error('--impression supports only text and json formats.');
+        }
         if (options.verbose && options.quiet)
           throw new Error('--verbose and --quiet cannot be used together.');
-        process.stdout.write(
-          options.impression
-            ? format === 'json'
-              ? renderImpressionJson(report)
-              : renderImpressionTerminal(report)
-            : format === 'json'
-              ? renderJson(report)
-              : renderTerminal(report, {
-                  verbose: Boolean(options.verbose),
-                  quiet: Boolean(options.quiet),
-                }),
-        );
+        const emittedReport = limitedReport(report, maximumFindings);
+        let output = options.impression
+          ? format === 'json'
+            ? renderImpressionJson(emittedReport)
+            : renderImpressionTerminal(emittedReport)
+          : format === 'json'
+            ? renderJson(emittedReport)
+            : format === 'sarif'
+              ? renderSarif(report, maximumFindings)
+              : format === 'github'
+                ? renderGitHub(report, maximumFindings)
+                : renderTerminal(emittedReport, {
+                    verbose: Boolean(options.verbose),
+                    quiet: Boolean(options.quiet),
+                  });
+        if (!options.color) output = stripAnsi(output);
+        if (options.output) await writeOutput(options.output, output);
+        else process.stdout.write(output);
         if (options.failOn) {
-          const candidateFindings = report.baseline?.newFindings ?? report.findings;
+          const candidateFindings = reportFindings(report);
           if (SEVERITIES.includes(options.failOn as (typeof SEVERITIES)[number])) {
             const threshold = SEVERITIES.indexOf(
               options.failOn as (typeof SEVERITIES)[number],
@@ -115,13 +189,17 @@ program
             )
               process.exitCode = 1;
           } else {
-            const hasFailure = report.baseline
-              ? candidateFindings.some((finding) => finding.category === options.failOn)
-              : report.scores[options.failOn as keyof typeof report.scores]?.rules.some(
-                  (rule) => rule.status === 'fail' || rule.status === 'partial',
-                );
+            const hasFailure =
+              report.baseline || report.diff
+                ? candidateFindings.some((finding) => finding.category === options.failOn)
+                : report.scores[options.failOn as keyof typeof report.scores]?.rules.some(
+                    (rule) => rule.status === 'fail' || rule.status === 'partial',
+                  );
             if (hasFailure) process.exitCode = 1;
           }
+        }
+        if (minimumScore !== undefined && report.overall < minimumScore) {
+          process.exitCode = 1;
         }
       } catch (error) {
         process.stderr.write(
@@ -139,10 +217,16 @@ program
   .option('--check-links', 'include external HTTP link checks in the baseline')
   .option('--project <path>', 'select a package directory inside a monorepo')
   .option('--readme <path>', 'override the README path inside the selected project')
+  .option('--output <file>', 'write the baseline atomically instead of printing it')
   .action(
     async (
       repositoryPath: string,
-      options: { checkLinks?: boolean; project?: string; readme?: string },
+      options: {
+        checkLinks?: boolean;
+        project?: string;
+        readme?: string;
+        output?: string;
+      },
     ) => {
       try {
         const report = await analyzeRepository(repositoryPath, {
@@ -150,7 +234,9 @@ program
           ...(options.project ? { projectPath: options.project } : {}),
           ...(options.readme ? { readmePath: options.readme } : {}),
         });
-        process.stdout.write(`${JSON.stringify(createBaseline(report), null, 2)}\n`);
+        const output = `${JSON.stringify(createBaseline(report), null, 2)}\n`;
+        if (options.output) await writeOutput(options.output, output);
+        else process.stdout.write(output);
       } catch (error) {
         process.stderr.write(
           `readme-fit baseline: ${error instanceof Error ? error.message : String(error)}\n`,
@@ -159,6 +245,60 @@ program
       }
     },
   );
+
+program
+  .command('init')
+  .description('Create a safe declarative readme-fit configuration')
+  .argument('[path]', 'repository path', '.')
+  .action(async (repositoryPath: string) => {
+    try {
+      const target = path.resolve(repositoryPath, '.readme-fit.yml');
+      await writeFile(
+        target,
+        'version: 1\nproject:\n  type: auto\nscoring:\n  preset: balanced\n',
+        { encoding: 'utf8', flag: 'wx' },
+      );
+      process.stdout.write(`Created ${target}\n`);
+    } catch (error) {
+      process.stderr.write(
+        `readme-fit init: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 2;
+    }
+  });
+
+program
+  .command('doctor')
+  .description('Validate configuration and repository analysis prerequisites')
+  .argument('[path]', 'repository path', '.')
+  .option('--json', 'emit machine-readable JSON')
+  .action(async (repositoryPath: string, options: { json?: boolean }) => {
+    try {
+      const report = await analyzeRepository(repositoryPath);
+      const diagnosis = {
+        ok: true,
+        version: VERSION,
+        node: process.version,
+        projectType: report.project.primaryType,
+        rubricStatus: report.project.rubricStatus,
+        readme: report.readme.path,
+        inspectionTruncated: report.facts.repositoryInspection
+          ? (report.facts.repositoryInspection as { truncated?: boolean }).truncated ===
+            true
+          : false,
+      };
+      process.stdout.write(
+        options.json
+          ? `${JSON.stringify(diagnosis, null, 2)}\n`
+          : `readme-fit doctor: OK\nNode ${diagnosis.node}\nProject ${diagnosis.projectType} (${diagnosis.rubricStatus} rubric)\nREADME ${diagnosis.readme}\n`,
+      );
+    } catch (error) {
+      process.stderr.write(
+        `readme-fit doctor: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 2;
+    }
+  });
 
 program
   .command('impression')

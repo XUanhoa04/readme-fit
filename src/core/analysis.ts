@@ -88,6 +88,7 @@ export async function analyzeRepository(
     fileCount: repository.files.length,
     repositoryInspection: repository.inspection,
     workspace: repository.workspace,
+    projectPath: options.projectPath?.replaceAll('\\', '/').replace(/\/$/, '') || '.',
   };
   for (const rule of getRules()) {
     const configKey =

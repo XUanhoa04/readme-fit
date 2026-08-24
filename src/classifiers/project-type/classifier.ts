@@ -54,7 +54,7 @@ function inferSignals(repository: RepositorySnapshot): ClassificationSignal[] {
     signals.push({ type, score, reason, source });
 
   if (repository.files.some((file) => /^action\.ya?ml$/i.test(file))) {
-    add('github-action', 125, 'A root action manifest was found.', 'action.yml');
+    add('github-action', 95, 'A root action manifest was found.', 'action.yml');
   }
   if (record(pkg.engines).vscode || pkg.contributes) {
     add(
