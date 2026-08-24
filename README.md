@@ -47,7 +47,7 @@ reduces coverage instead of becoming an implicit pass.
 
 ## Quick start
 
-Node.js 20 or newer is required.
+Node.js 22 or newer is required.
 
 ```bash
 # Scan the current repository
@@ -309,7 +309,7 @@ npm run dogfood
 ```
 
 The suite includes property tests, adversarial fixtures, JSON Schema validation, package install
-smoke tests, a 2,001-file benchmark, and Windows/macOS/Linux CI on Node 20 and 22.
+smoke tests, a 2,001-file benchmark, and Windows/macOS/Linux CI on Node 22, 24, and 26.
 
 ## Project docs
 
@@ -319,6 +319,7 @@ smoke tests, a 2,001-file benchmark, and Windows/macOS/Linux CI on Node 20 and 2
 - [CI integration](docs/ci.md)
 - [Rule authoring](docs/rule-authoring.md)
 - [Migrating to v1](docs/migrating-to-v1.md)
+- [Release process](RELEASE.md)
 - [Changelog](CHANGELOG.md)
 
 Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), follow the

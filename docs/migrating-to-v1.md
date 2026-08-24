@@ -2,6 +2,11 @@
 
 This document describes the compatibility boundary between `readme-fit` 0.2.x and v1.
 
+## Runtime
+
+Version 1 requires Node.js 22 or newer. Node.js 20 reached end of life before the v1 release and is
+no longer in the supported CI matrix.
+
 ## Reports
 
 Repository reports move from schema version 1 to version 2. Version 2 adds explicit verification

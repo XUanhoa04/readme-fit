@@ -11,7 +11,7 @@ Thanks for helping make README review more trustworthy.
 
 ## Development
 
-Use Node.js 20 or 22 and install from the lockfile:
+Use a supported Node.js release (22, 24, or 26) and install from the lockfile:
 
 ```bash
 npm ci

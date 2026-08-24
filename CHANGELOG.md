@@ -5,6 +5,8 @@ versioning.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-24
+
 ### Added
 
 - typed README claim and repository evidence graph;
@@ -22,6 +24,7 @@ versioning.
 
 ### Breaking
 
+- the minimum supported runtime is Node.js 22;
 - report and baseline schemas are version 2;
 - config v2 is generated; v1 remains readable during the migration window;
 - scoring exposes category weights, coverage, and `partial` outcomes.
