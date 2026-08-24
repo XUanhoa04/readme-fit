@@ -95,6 +95,25 @@ describe('CLI behavior', () => {
     expect(result.stderr).toMatch(/Unknown --fail-on value/i);
   });
 
+  it('supports explicit project and README selection', () => {
+    const selected = runCli([
+      'scan',
+      '.',
+      '--project',
+      'fixtures/good-cli',
+      '--readme',
+      'README.md',
+      '--json',
+    ]);
+    expect(selected.status).toBe(0);
+    const report = JSON.parse(selected.stdout) as { project: { packageName?: string } };
+    expect(report.project.packageName).toBe('good-cli');
+
+    const escaped = runCli(['scan', '.', '--project', '../outside']);
+    expect(escaped.status).toBe(2);
+    expect(escaped.stderr).toMatch(/inside the repository root/i);
+  });
+
   it('captures baselines and fails CI only for new regressions', () => {
     const temporary = mkdtempSync(path.join(tmpdir(), 'readme-fit-baseline-'));
     try {

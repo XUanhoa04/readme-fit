@@ -17,14 +17,33 @@ function isInside(root: string, target: string): boolean {
 
 export interface AnalysisOptions {
   checkLinks?: boolean;
+  projectPath?: string;
+  readmePath?: string;
 }
 
 export async function analyzeRepository(
   rootInput: string,
   options: AnalysisOptions = {},
 ): Promise<AnalysisReport> {
-  const root = path.resolve(rootInput);
+  const repositoryRoot = path.resolve(rootInput);
+  const root = options.projectPath
+    ? path.resolve(repositoryRoot, options.projectPath)
+    : repositoryRoot;
+  if (!isInside(repositoryRoot, root)) {
+    throw new Error('projectPath must resolve inside the repository root.');
+  }
+  const [canonicalRepositoryRoot, canonicalProjectRoot] = await Promise.all([
+    realpath(repositoryRoot),
+    realpath(root),
+  ]);
+  if (!isInside(canonicalRepositoryRoot, canonicalProjectRoot)) {
+    throw new Error('projectPath must resolve inside the repository root.');
+  }
   const config = await loadConfig(root, new Set(getRules().map((rule) => rule.id)));
+  if (options.readmePath !== undefined) {
+    if (!options.readmePath.trim()) throw new Error('readmePath must not be empty.');
+    config.readme.path = options.readmePath;
+  }
   const repository = await inspectRepository(root, config.ignore.paths);
   const readmePath = resolveReadme(root, config);
   let raw: string;
@@ -67,6 +86,7 @@ export async function analyzeRepository(
   const facts: Record<string, unknown> = {
     fileCount: repository.files.length,
     repositoryInspection: repository.inspection,
+    workspace: repository.workspace,
   };
   for (const rule of getRules()) {
     const configKey =

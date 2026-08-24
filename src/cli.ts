@@ -50,6 +50,8 @@ program
   .option('--format <format>', 'output format: text or json', 'text')
   .option('--impression', 'show only the first-impression report')
   .option('--check-links', 'check external HTTP links with bounded network requests')
+  .option('--project <path>', 'select a package directory inside a monorepo')
+  .option('--readme <path>', 'override the README path inside the selected project')
   .option('--baseline <file>', 'compare against a previously captured baseline')
   .option('--verbose', 'show every applicable rule result')
   .option('--quiet', 'show only the overall score and critical findings')
@@ -62,6 +64,8 @@ program
         format: string;
         impression?: boolean;
         checkLinks?: boolean;
+        project?: string;
+        readme?: string;
         baseline?: string;
         verbose?: boolean;
         quiet?: boolean;
@@ -72,6 +76,8 @@ program
         validateFailOn(options.failOn);
         const report = await analyzeRepository(repositoryPath, {
           checkLinks: Boolean(options.checkLinks),
+          ...(options.project ? { projectPath: options.project } : {}),
+          ...(options.readme ? { readmePath: options.readme } : {}),
         });
         if (options.baseline) {
           report.baseline = compareBaseline(
@@ -131,19 +137,28 @@ program
   .description('Capture the current findings for regression-aware CI')
   .argument('[path]', 'repository path', '.')
   .option('--check-links', 'include external HTTP link checks in the baseline')
-  .action(async (repositoryPath: string, options: { checkLinks?: boolean }) => {
-    try {
-      const report = await analyzeRepository(repositoryPath, {
-        checkLinks: Boolean(options.checkLinks),
-      });
-      process.stdout.write(`${JSON.stringify(createBaseline(report), null, 2)}\n`);
-    } catch (error) {
-      process.stderr.write(
-        `readme-fit baseline: ${error instanceof Error ? error.message : String(error)}\n`,
-      );
-      process.exitCode = 2;
-    }
-  });
+  .option('--project <path>', 'select a package directory inside a monorepo')
+  .option('--readme <path>', 'override the README path inside the selected project')
+  .action(
+    async (
+      repositoryPath: string,
+      options: { checkLinks?: boolean; project?: string; readme?: string },
+    ) => {
+      try {
+        const report = await analyzeRepository(repositoryPath, {
+          checkLinks: Boolean(options.checkLinks),
+          ...(options.project ? { projectPath: options.project } : {}),
+          ...(options.readme ? { readmePath: options.readme } : {}),
+        });
+        process.stdout.write(`${JSON.stringify(createBaseline(report), null, 2)}\n`);
+      } catch (error) {
+        process.stderr.write(
+          `readme-fit baseline: ${error instanceof Error ? error.message : String(error)}\n`,
+        );
+        process.exitCode = 2;
+      }
+    },
+  );
 
 program
   .command('impression')

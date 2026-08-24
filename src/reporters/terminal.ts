@@ -172,6 +172,9 @@ export function renderTerminal(
       `Type        ${projectTypes}`,
       `README      ${report.readme.path}`,
       `Files       ${String(fileCount)}`,
+      ...(report.project.workspace.isMonorepo
+        ? [`Workspace   ${report.project.workspace.packageCount} packages`]
+        : []),
       `Language    ${report.project.languages.join(', ') || 'Unknown'}`,
       '',
       pc.bold('README FIT'),

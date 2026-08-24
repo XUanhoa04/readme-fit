@@ -4,6 +4,7 @@ import { relativeLinkRule } from '../analyzers/links/rule.js';
 import { externalLinkRule } from '../analyzers/links/external-rule.js';
 import { metadataParseRule } from '../analyzers/metadata/rule.js';
 import { packageNameRule } from '../analyzers/package/rule.js';
+import { packageManagerRule } from '../analyzers/package-manager/rule.js';
 import { runtimeRule } from '../analyzers/runtime/rule.js';
 import { heroExplanationRule } from '../analyzers/hero/rules.js';
 import { structureRule } from '../analyzers/structure/rule.js';
@@ -25,6 +26,7 @@ for (const rule of [
   externalLinkRule,
   metadataParseRule,
   packageNameRule,
+  packageManagerRule,
   runtimeRule,
   licenseRule,
   heroExplanationRule,

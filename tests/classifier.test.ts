@@ -32,6 +32,7 @@ describe('project classification', () => {
       root: '/mock',
       files: ['bun.lockb', 'package.json', 'src/index.ts'],
       inspection: { fileLimit: 10_000, truncated: false },
+      workspace: { isMonorepo: false, patterns: [], packages: [], lockfileConflicts: [] },
       packageJson: { name: 'bun-app' },
     });
     expect(bunProfile.packageManagers).toContain('bun');
@@ -40,6 +41,7 @@ describe('project classification', () => {
       root: '/mock',
       files: ['deno.json', 'main.ts'],
       inspection: { fileLimit: 10_000, truncated: false },
+      workspace: { isMonorepo: false, patterns: [], packages: [], lockfileConflicts: [] },
     });
     expect(denoProfile.packageManagers).toContain('deno');
 
@@ -47,6 +49,7 @@ describe('project classification', () => {
       root: '/mock',
       files: ['Cargo.toml', 'src/main.rs'],
       inspection: { fileLimit: 10_000, truncated: false },
+      workspace: { isMonorepo: false, patterns: [], packages: [], lockfileConflicts: [] },
       cargoToml: '[package]\nname = "my-cli"\n',
     });
     expect(rustCliProfile.primaryType).toBe('cli');
@@ -56,6 +59,7 @@ describe('project classification', () => {
       root: '/mock',
       files: ['pyproject.toml', 'src/tool/__init__.py'],
       inspection: { fileLimit: 10_000, truncated: false },
+      workspace: { isMonorepo: false, patterns: [], packages: [], lockfileConflicts: [] },
       pyproject: '[project.scripts]\nmy-cmd = "tool.cli:main"\n',
     });
     expect(pythonCliProfile.primaryType).toBe('cli');

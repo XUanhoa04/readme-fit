@@ -109,6 +109,38 @@ export interface ProjectProfile {
   entrypoints: string[];
   packageName?: string;
   confidence: number;
+  classificationEvidence: Array<{
+    type: ProjectType;
+    score: number;
+    reason: string;
+    source: string;
+  }>;
+  workspace: {
+    isMonorepo: boolean;
+    packageCount: number;
+  };
+}
+
+export type RepositoryEcosystem = 'node' | 'python' | 'rust' | 'go';
+
+export interface RepositoryPackage {
+  id: string;
+  ecosystem: RepositoryEcosystem;
+  name?: string;
+  path: string;
+  manifestPath: string;
+  private: boolean;
+  hasCli: boolean;
+  entrypoints: string[];
+  readmes: string[];
+  packageManager?: string;
+}
+
+export interface WorkspaceSnapshot {
+  isMonorepo: boolean;
+  patterns: string[];
+  packages: RepositoryPackage[];
+  lockfileConflicts: string[];
 }
 
 export interface MarkdownPosition {
@@ -168,10 +200,12 @@ export interface RepositorySnapshot {
     fileLimit: number;
     truncated: boolean;
   };
+  workspace: WorkspaceSnapshot;
   packageJson?: Record<string, unknown>;
   pyproject?: string;
   cargoToml?: string;
   goMod?: string;
+  goWork?: string;
   nvmrc?: string;
   nodeVersion?: string;
   pythonVersion?: string;

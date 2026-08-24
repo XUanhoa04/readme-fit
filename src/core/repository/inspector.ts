@@ -3,6 +3,7 @@ import path from 'node:path';
 import ignore from 'ignore';
 import type { RepositorySnapshot } from '../../models/index.js';
 import { isValidPyproject } from './python-metadata.js';
+import { inspectWorkspace } from './workspace.js';
 
 const DEFAULT_IGNORES = [
   '.git/',
@@ -90,10 +91,17 @@ export async function inspectRepository(
       });
     }
   }
+  const workspaceInspection = await inspectWorkspace(root, files);
+  metadataIssues.push(
+    ...workspaceInspection.issues.filter(
+      (issue) => !['package.json', 'pyproject.toml'].includes(issue.path),
+    ),
+  );
   const snapshot: RepositorySnapshot = {
     root,
     files,
     metadataIssues,
+    workspace: workspaceInspection.workspace,
     inspection: {
       fileLimit: MAX_INSPECTED_FILES,
       truncated: collected.truncated,
@@ -104,6 +112,7 @@ export async function inspectRepository(
     ['pyproject', 'pyproject.toml'],
     ['cargoToml', 'Cargo.toml'],
     ['goMod', 'go.mod'],
+    ['goWork', 'go.work'],
     ['nvmrc', '.nvmrc'],
     ['nodeVersion', '.node-version'],
     ['pythonVersion', '.python-version'],

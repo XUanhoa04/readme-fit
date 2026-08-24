@@ -79,6 +79,12 @@ bunx my-tool scan
         root: '/mock',
         files: ['README.md'],
         inspection: { fileLimit: 10_000, truncated: false },
+        workspace: {
+          isMonorepo: false,
+          patterns: [],
+          packages: [],
+          lockfileConflicts: [],
+        },
       },
       readme,
       project: {

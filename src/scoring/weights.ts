@@ -8,6 +8,7 @@ const BASE_WEIGHTS: Record<string, number> = {
   'correctness.external-link.reachable': 10,
   'correctness.metadata.parseable': 15,
   'correctness.package-name.matches': 20,
+  'correctness.package-manager.consistent': 10,
   'correctness.runtime.matches': 15,
   'correctness.license.matches': 15,
   'structure.h1': 10,
