@@ -2,6 +2,7 @@ import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 import { pythonLicense } from '../../core/repository/python-metadata.js';
+import parseSpdx from 'spdx-expression-parse';
 
 function detectLicense(text?: string): string | undefined {
   if (!text) return undefined;
@@ -49,6 +50,24 @@ function normalizeLicense(claim: string): string {
   return claim.toUpperCase();
 }
 
+function expressionLicenses(expression: string | undefined): Set<string> {
+  if (!expression) return new Set();
+  try {
+    const licenses = new Set<string>();
+    const collect = (node: ReturnType<typeof parseSpdx>): void => {
+      if ('license' in node) licenses.add(normalizeLicense(node.license));
+      else {
+        collect(node.left);
+        collect(node.right);
+      }
+    };
+    collect(parseSpdx(expression));
+    return licenses;
+  } catch {
+    return new Set([normalizeLicense(expression)]);
+  }
+}
+
 export const licenseRule: Rule = {
   id: 'correctness.license.matches',
   category: 'correctness',
@@ -78,6 +97,7 @@ export const licenseRule: Rule = {
           : 'package.json';
 
     const detected = fileLicense ?? metadataLicense;
+    const metadataLicenses = expressionLicenses(metadataLicense);
     const match = readme.raw.match(
       /\b(MIT|Apache(?: License)?(?: 2\.0|-2\.0)?|ISC|AGPL(?:v?3|-3\.0)?|LGPL(?:v?3|-3\.0)?|GPL(?:v?3|-3\.0)?|BSD(?:-?[23]-Clause)?|MPL(?:-?2\.0)?|Unlicense|CC0(?:-1\.0)?)\b/i,
     );
@@ -91,7 +111,16 @@ export const licenseRule: Rule = {
         facts: { detectedLicense: detected ?? 'unverified' },
       };
     const normalized = normalizeLicense(match[1]);
-    if (normalized.toLowerCase() === detected.toLowerCase())
+    const localLicenses = new Set([
+      ...(fileLicense ? [normalizeLicense(fileLicense)] : []),
+      ...metadataLicenses,
+    ]);
+    const metadataConflict = Boolean(
+      fileLicense &&
+      metadataLicense &&
+      !metadataLicenses.has(normalizeLicense(fileLicense)),
+    );
+    if (localLicenses.has(normalized) && !metadataConflict)
       return {
         score: passScore(
           'correctness.license.matches',
@@ -102,6 +131,9 @@ export const licenseRule: Rule = {
         facts: { detectedLicense: detected },
       };
     const line = readme.raw.slice(0, match.index).split(/\r?\n/).length;
+    const observation = metadataConflict
+      ? `The local license file indicates ${fileLicense}, while package metadata declares ${metadataLicense}.`
+      : `The README claims ${normalized}, while local metadata indicates ${detected}.`;
     return {
       score: failScore(
         'correctness.license.matches',
@@ -115,9 +147,11 @@ export const licenseRule: Rule = {
           category: 'correctness',
           severity: 'critical',
           priority: 'P0',
-          title: 'License claim conflicts with repository',
+          title: metadataConflict
+            ? 'License metadata conflicts with license file'
+            : 'License claim conflicts with repository',
           source: { path: readme.path, line },
-          observation: `The README claims ${normalized}, while local metadata indicates ${detected}.`,
+          observation,
           impact: 'Conflicting license information creates legal uncertainty for adopters.',
           recommendation:
             'Confirm the intended license and make README, package metadata, and LICENSE agree.',
@@ -125,7 +159,9 @@ export const licenseRule: Rule = {
             { type: 'readme-license', message: normalized, path: readme.path, line },
             {
               type: 'license-file',
-              message: detected,
+              message: metadataConflict
+                ? `${fileLicense} versus ${metadataLicense}`
+                : detected,
               path: fileLicense ? 'LICENSE' : metadataPath,
             },
           ],

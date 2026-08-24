@@ -1,6 +1,65 @@
-import type { ProjectType } from '../models/index.js';
+import type { Category, ProjectType } from '../models/index.js';
 
 export type ScoringPreset = 'minimal' | 'balanced' | 'oss' | 'portfolio';
+
+const CATEGORY_WEIGHTS: Record<Exclude<Category, 'profile'>, number> = {
+  correctness: 30,
+  onboarding: 17,
+  completeness: 15,
+  clarity: 8,
+  impression: 13,
+  'visual-proof': 7,
+  trust: 10,
+};
+
+const PRESET_CATEGORY_OVERRIDES: Partial<
+  Record<ScoringPreset, Partial<Record<Exclude<Category, 'profile'>, number>>>
+> = {
+  minimal: { correctness: 35, onboarding: 25, completeness: 12, impression: 12 },
+  oss: { correctness: 32, completeness: 16, trust: 17 },
+  portfolio: { impression: 20, 'visual-proof': 18, trust: 5 },
+};
+
+const NO_VISUAL_RUBRIC = new Set<ProjectType>([
+  'library',
+  'sdk',
+  'api',
+  'ai-model',
+  'dataset',
+  'template',
+  'tutorial',
+  'documentation',
+  'infrastructure',
+  'unknown',
+]);
+
+export const STABLE_PROJECT_TYPES = new Set<ProjectType>([
+  'cli',
+  'library',
+  'sdk',
+  'api',
+  'web-app',
+  'desktop-app',
+  'github-action',
+]);
+
+export function rubricStatus(
+  projectType: ProjectType,
+): 'stable' | 'experimental' | 'unknown' {
+  if (projectType === 'unknown') return 'unknown';
+  return STABLE_PROJECT_TYPES.has(projectType) ? 'stable' : 'experimental';
+}
+
+export function categoryWeight(
+  category: Category,
+  projectType: ProjectType,
+  preset: ScoringPreset = 'balanced',
+): number {
+  if (category === 'profile') return 0;
+  if (category === 'visual-proof' && NO_VISUAL_RUBRIC.has(projectType)) return 0;
+  if (category === 'completeness' && !STABLE_PROJECT_TYPES.has(projectType)) return 0;
+  return PRESET_CATEGORY_OVERRIDES[preset]?.[category] ?? CATEGORY_WEIGHTS[category];
+}
 
 const BASE_WEIGHTS: Record<string, number> = {
   'correctness.command.exists': 25,
@@ -8,6 +67,7 @@ const BASE_WEIGHTS: Record<string, number> = {
   'correctness.external-link.reachable': 10,
   'correctness.metadata.parseable': 15,
   'correctness.package-name.matches': 20,
+  'correctness.package-manager.consistent': 10,
   'correctness.runtime.matches': 15,
   'correctness.license.matches': 15,
   'structure.h1': 10,

@@ -7,16 +7,66 @@ import type {
   BaselineFinding,
   Category,
   Finding,
+  Severity,
 } from '../models/index.js';
 
-export function findingFingerprint(finding: Finding): string {
-  const identity = [finding.id, finding.source?.path ?? '', finding.title].join('\0');
+interface LegacyBaselineFile {
+  schemaVersion: 1;
+  createdAt: string;
+  projectType: string;
+  scores: Record<string, number | null>;
+  findings: Array<Omit<BaselineFinding, 'subject'>>;
+}
+
+const CATEGORIES = new Set<Category>([
+  'correctness',
+  'completeness',
+  'onboarding',
+  'clarity',
+  'impression',
+  'visual-proof',
+  'trust',
+  'profile',
+]);
+const SEVERITIES = new Set<Severity>(['critical', 'high', 'medium', 'low', 'info']);
+
+function digest(identity: string): string {
   return createHash('sha256').update(identity).digest('hex').slice(0, 16);
+}
+
+function canonicalValue(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalValue).join(',')}]`;
+  return `{${Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, item]) => `${JSON.stringify(key)}:${canonicalValue(item)}`)
+    .join(',')}}`;
+}
+
+export function findingSubject(finding: Finding): string {
+  const evidence = finding.evidence[0];
+  if (!evidence) return finding.title;
+  const value =
+    evidence.value === undefined ? evidence.message : canonicalValue(evidence.value);
+  return [evidence.type, evidence.path ?? '', String(value).trim()].join('\0');
+}
+
+function legacyFindingFingerprint(finding: Finding): string {
+  return digest([finding.id, finding.source?.path ?? '', finding.title].join('\0'));
+}
+
+export function findingFingerprint(finding: Finding): string {
+  return digest(
+    [finding.id, finding.source?.path ?? '', finding.title, findingSubject(finding)].join(
+      '\0',
+    ),
+  );
 }
 
 export function createBaseline(report: AnalysisReport): BaselineFile {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    fingerprintVersion: 2,
     createdAt: report.generatedAt,
     projectType: report.project.primaryType,
     scores: Object.fromEntries(
@@ -28,6 +78,7 @@ export function createBaseline(report: AnalysisReport): BaselineFile {
     findings: report.findings.map((finding): BaselineFinding => {
       const baseline: BaselineFinding = {
         fingerprint: findingFingerprint(finding),
+        subject: findingSubject(finding),
         id: finding.id,
         title: finding.title,
         category: finding.category,
@@ -39,15 +90,55 @@ export function createBaseline(report: AnalysisReport): BaselineFile {
   };
 }
 
-function isBaselineFinding(value: unknown): value is BaselineFinding {
-  if (!value || typeof value !== 'object') return false;
-  const finding = value as Record<string, unknown>;
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function isBaselineFinding(value: unknown, requireSubject: boolean): boolean {
+  const item = record(value);
+  return Boolean(
+    item &&
+    typeof item.fingerprint === 'string' &&
+    (!requireSubject || typeof item.subject === 'string') &&
+    typeof item.id === 'string' &&
+    typeof item.title === 'string' &&
+    typeof item.category === 'string' &&
+    CATEGORIES.has(item.category as Category) &&
+    typeof item.severity === 'string' &&
+    SEVERITIES.has(item.severity as Severity) &&
+    (item.path === undefined || typeof item.path === 'string'),
+  );
+}
+
+function validScores(value: unknown): value is Record<string, number | null> {
+  const scores = record(value);
+  return Boolean(
+    scores &&
+    Object.entries(scores).every(
+      ([category, score]) =>
+        CATEGORIES.has(category as Category) &&
+        (score === null ||
+          (typeof score === 'number' &&
+            Number.isInteger(score) &&
+            score >= 0 &&
+            score <= 100)),
+    ),
+  );
+}
+
+function sharedBaselineFields(
+  value: Record<string, unknown>,
+  requireSubject: boolean,
+): boolean {
   return (
-    typeof finding.fingerprint === 'string' &&
-    typeof finding.id === 'string' &&
-    typeof finding.title === 'string' &&
-    typeof finding.category === 'string' &&
-    typeof finding.severity === 'string'
+    typeof value.createdAt === 'string' &&
+    !Number.isNaN(Date.parse(value.createdAt)) &&
+    typeof value.projectType === 'string' &&
+    validScores(value.scores) &&
+    Array.isArray(value.findings) &&
+    value.findings.every((finding) => isBaselineFinding(finding, requireSubject))
   );
 }
 
@@ -58,20 +149,30 @@ export function parseBaseline(raw: string): BaselineFile {
   } catch {
     throw new Error('Baseline is not valid JSON.');
   }
-  if (!value || typeof value !== 'object') throw new Error('Invalid baseline document.');
-  const baseline = value as Record<string, unknown>;
+  const baseline = record(value);
+  if (!baseline) throw new Error('Invalid baseline document.');
+
   if (
-    baseline.schemaVersion !== 1 ||
-    typeof baseline.createdAt !== 'string' ||
-    typeof baseline.projectType !== 'string' ||
-    !baseline.scores ||
-    typeof baseline.scores !== 'object' ||
-    !Array.isArray(baseline.findings) ||
-    !baseline.findings.every(isBaselineFinding)
+    baseline.schemaVersion === 2 &&
+    baseline.fingerprintVersion === 2 &&
+    sharedBaselineFields(baseline, true)
   ) {
-    throw new Error('Invalid or unsupported readme-fit baseline schema.');
+    return value as BaselineFile;
   }
-  return value as BaselineFile;
+
+  if (baseline.schemaVersion === 1 && sharedBaselineFields(baseline, false)) {
+    const legacy = value as LegacyBaselineFile;
+    return {
+      schemaVersion: 2,
+      fingerprintVersion: 1,
+      createdAt: legacy.createdAt,
+      projectType: legacy.projectType as BaselineFile['projectType'],
+      scores: legacy.scores,
+      findings: legacy.findings.map((finding) => ({ ...finding, subject: finding.title })),
+    };
+  }
+
+  throw new Error('Invalid or unsupported readme-fit baseline schema.');
 }
 
 export async function loadBaseline(filePath: string): Promise<BaselineFile> {
@@ -87,18 +188,20 @@ export function compareBaseline(
   report: AnalysisReport,
   baseline: BaselineFile,
 ): BaselineComparison {
-  const previous = new Map(
-    baseline.findings.map((finding) => [finding.fingerprint, finding] as const),
+  const currentIdentity = (finding: Finding): string =>
+    baseline.fingerprintVersion === 1
+      ? legacyFindingFingerprint(finding)
+      : findingFingerprint(finding);
+  const previousFingerprints = new Set(
+    baseline.findings.map((finding) => finding.fingerprint),
   );
-  const current = new Map(
-    report.findings.map((finding) => [findingFingerprint(finding), finding] as const),
+  const currentFingerprints = new Set(report.findings.map(currentIdentity));
+  const newFindings = report.findings.filter(
+    (finding) => !previousFingerprints.has(currentIdentity(finding)),
   );
-  const newFindings = [...current.entries()]
-    .filter(([fingerprint]) => !previous.has(fingerprint))
-    .map(([, finding]) => finding);
-  const resolvedFindings = [...previous.entries()]
-    .filter(([fingerprint]) => !current.has(fingerprint))
-    .map(([, finding]) => finding);
+  const resolvedFindings = baseline.findings.filter(
+    (finding) => !currentFingerprints.has(finding.fingerprint),
+  );
   const scoreDeltas: BaselineComparison['scoreDeltas'] = {};
   for (const [category, score] of Object.entries(report.scores)) {
     const key = category as Category;
@@ -110,7 +213,7 @@ export function compareBaseline(
         : currentScore - previousScore;
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     newFindings,
     resolvedFindings,
     unchangedFindings: report.findings.length - newFindings.length,

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/XUanhoa04/readme-fit/main/schemas/report.schema.json",
+  "title": "readme-fit analysis report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "project",
+    "readme",
+    "scores",
+    "overall",
+    "overallCoverage",
+    "findings",
+    "coverage",
+    "limitations",
+    "evidenceGraph"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "project": { "type": "object" },
+    "readme": { "type": "object" },
+    "scores": { "type": "object" },
+    "overall": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "overallCoverage": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "findings": { "type": "array" },
+    "facts": { "type": "object" },
+    "coverage": { "type": "object" },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "evidenceGraph": { "type": "object" },
+    "baseline": { "type": "object" },
+    "diff": { "type": "object" }
+  },
+  "additionalProperties": false
+}

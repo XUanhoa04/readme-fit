@@ -1,7 +1,7 @@
 {
   "name": "readme-fit",
-  "version": "0.2.0",
-  "description": "Repository-aware README quality auditor grounded in evidence.",
+  "version": "1.0.0",
+  "description": "Evidence-first README drift analyzer with deterministic CI gates.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,6 +9,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./rules": {
+      "types": "./dist/rules/index.d.ts",
+      "import": "./dist/rules/index.js"
+    },
+    "./reporters": {
+      "types": "./dist/reporters/index.d.ts",
+      "import": "./dist/reporters/index.js"
+    },
+    "./config": {
+      "types": "./dist/core/config/config.d.ts",
+      "import": "./dist/core/config/config.js"
     }
   },
   "bin": {
@@ -17,6 +29,9 @@
   "files": [
     "dist",
     "skills",
+    "schemas",
+    "action.yml",
+    "CHANGELOG.md",
     "LICENSE",
     "README.md"
   ],
@@ -28,13 +43,19 @@
     "format:check": "prettier --check .",
     "prepack": "npm run build",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:package": "node scripts/smoke-package.mjs",
     "test:watch": "vitest",
+    "benchmark": "node scripts/benchmark.mjs",
     "demo": "npm run build && node dist/cli.js scan fixtures/stale-cli",
-    "dogfood": "npm run build && node dist/cli.js scan ."
+    "dogfood": "npm run build && node dist/cli.js scan .",
+    "release:check": "npm run build && node scripts/release-check.mjs",
+    "sbom": "npm sbom --sbom-format=cyclonedx"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
+  "sideEffects": false,
   "keywords": [
     "readme",
     "documentation",
@@ -48,11 +69,24 @@
     "type": "git",
     "url": "git+https://github.com/XUanhoa04/readme-fit.git"
   },
+  "bugs": {
+    "url": "https://github.com/XUanhoa04/readme-fit/issues"
+  },
+  "homepage": "https://github.com/XUanhoa04/readme-fit#readme",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {
     "commander": "^14.0.0",
     "ignore": "^7.0.5",
+    "minimatch": "^10.2.6",
     "picocolors": "^1.1.1",
+    "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
+    "semver": "^7.8.5",
+    "smol-toml": "^1.8.0",
+    "spdx-expression-parse": "^5.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
     "yaml": "^2.8.1"
@@ -60,7 +94,12 @@
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/node": "^24.2.1",
+    "@types/semver": "^7.8.0",
+    "@types/spdx-expression-parse": "^4.0.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "ajv": "^8.20.0",
     "eslint": "^9.33.0",
+    "fast-check": "^4.9.0",
     "prettier": "^3.6.2",
     "tsx": "^4.23.12",
     "typescript": "^5.9.2",

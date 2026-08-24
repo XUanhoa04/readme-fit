@@ -34,4 +34,11 @@ describe('Markdown AST parser', () => {
     expect(htmlImages[0]?.url).toBe('./assets/banner.png');
     expect(htmlImages[0]?.text).toBe('Project Banner');
   });
+
+  it('parses GitHub-flavored Markdown tables', () => {
+    const document = parseReadme(
+      '# Matrix\n\n| Project | Status |\n| --- | --- |\n| CLI | Stable |\n',
+    );
+    expect(document.tables).toBe(1);
+  });
 });

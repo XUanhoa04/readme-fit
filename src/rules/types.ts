@@ -1,5 +1,6 @@
 import type {
   Category,
+  EvidenceGraph,
   Finding,
   ProjectProfile,
   ReadmeDocument,
@@ -16,6 +17,7 @@ export interface AnalysisContext {
   options: {
     checkLinks: boolean;
   };
+  evidenceGraph: EvidenceGraph;
 }
 
 export interface RuleResult {

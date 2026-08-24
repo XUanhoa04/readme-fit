@@ -10,18 +10,29 @@ interface Demo {
   line: number;
 }
 
-function demos(readme: ReadmeDocument): Demo[] {
+export function productProofs(readme: ReadmeDocument): Demo[] {
   const found: Demo[] = readme.images
-    .filter(
-      (image) =>
-        !/shields\.io|badge|badgen|github\.com\/.*actions\/workflows|logo|banner|avatar|icon/i.test(
-          `${image.url} ${image.text}`,
-        ),
-    )
+    .filter((image) => {
+      const descriptor = `${image.url} ${image.text}`;
+      if (
+        /shields\.io|badge|badgen|github\.com\/.*actions\/workflows|logo|banner|avatar|icon/i.test(
+          descriptor,
+        )
+      )
+        return false;
+      return (
+        /\.gif(?:[?#]|$)/i.test(image.url) ||
+        /(?:screenshot|demo|preview|terminal|result|output|walkthrough|product[-_ ]?shot)/i.test(
+          descriptor,
+        )
+      );
+    })
     .map((image) => ({
       kind: /\.gif(?:[?#]|$)/i.test(image.url)
         ? 'animated image'
-        : /(?:screenshot|demo|preview|terminal)/i.test(`${image.url} ${image.text}`)
+        : /(?:screenshot|demo|preview|terminal|result|output)/i.test(
+              `${image.url} ${image.text}`,
+            )
           ? 'screenshot'
           : 'image',
       url: image.url,
@@ -67,7 +78,7 @@ export const demoPresenceRule: Rule = {
       project.primaryType,
       config.scoring.preset,
     );
-    const found = demos(readme);
+    const found = productProofs(readme);
     if (!relevant(project.primaryType) || weight === 0)
       return {
         score: naScore(
@@ -124,7 +135,7 @@ export const demoPlacementRule: Rule = {
     'Measures how much content appears before the first detected product demonstration.',
   applies: ({ project }) => relevant(project.primaryType),
   evaluate: ({ readme, project, config }) => {
-    const found = demos(readme).sort((a, b) => a.line - b.line);
+    const found = productProofs(readme).sort((a, b) => a.line - b.line);
     if (!found[0])
       return {
         score: naScore('visual.demo.placement', 'No demo exists to evaluate placement.'),

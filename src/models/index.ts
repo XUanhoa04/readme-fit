@@ -11,7 +11,10 @@ export type Category =
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Confidence = 'high' | 'medium' | 'low';
 export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
-export type RuleStatus = 'pass' | 'fail' | 'not_applicable';
+export type RuleStatus = 'pass' | 'partial' | 'fail' | 'not_applicable';
+export type VerificationState =
+  'verified' | 'contradicted' | 'unverified' | 'not_applicable' | 'skipped';
+export type ClaimKind = 'command' | 'package' | 'runtime' | 'license' | 'link';
 
 export type ProjectType =
   | 'cli'
@@ -41,6 +44,44 @@ export interface Evidence {
   value?: unknown;
 }
 
+export interface SourceReference {
+  path: string;
+  line?: number;
+  column?: number;
+}
+
+export interface Claim {
+  id: string;
+  kind: ClaimKind;
+  subject: string;
+  raw: string;
+  normalized: unknown;
+  source: SourceReference;
+  confidence: Confidence;
+}
+
+export interface RepositoryEvidence {
+  id: string;
+  kind: ClaimKind;
+  subject: string;
+  value: unknown;
+  source: SourceReference;
+}
+
+export interface Verification {
+  claimId: string;
+  state: VerificationState;
+  evidenceIds: string[];
+  reasonCode: string;
+  message: string;
+}
+
+export interface EvidenceGraph {
+  claims: Claim[];
+  evidence: RepositoryEvidence[];
+  verifications: Verification[];
+}
+
 export interface Finding {
   id: string;
   category: Category;
@@ -68,6 +109,39 @@ export interface ProjectProfile {
   entrypoints: string[];
   packageName?: string;
   confidence: number;
+  rubricStatus: 'stable' | 'experimental' | 'unknown';
+  classificationEvidence: Array<{
+    type: ProjectType;
+    score: number;
+    reason: string;
+    source: string;
+  }>;
+  workspace: {
+    isMonorepo: boolean;
+    packageCount: number;
+  };
+}
+
+export type RepositoryEcosystem = 'node' | 'python' | 'rust' | 'go';
+
+export interface RepositoryPackage {
+  id: string;
+  ecosystem: RepositoryEcosystem;
+  name?: string;
+  path: string;
+  manifestPath: string;
+  private: boolean;
+  hasCli: boolean;
+  entrypoints: string[];
+  readmes: string[];
+  packageManager?: string;
+}
+
+export interface WorkspaceSnapshot {
+  isMonorepo: boolean;
+  patterns: string[];
+  packages: RepositoryPackage[];
+  lockfileConflicts: string[];
 }
 
 export interface MarkdownPosition {
@@ -123,10 +197,16 @@ export interface ReadmeDocument {
 export interface RepositorySnapshot {
   root: string;
   files: string[];
+  inspection: {
+    fileLimit: number;
+    truncated: boolean;
+  };
+  workspace: WorkspaceSnapshot;
   packageJson?: Record<string, unknown>;
   pyproject?: string;
   cargoToml?: string;
   goMod?: string;
+  goWork?: string;
   nvmrc?: string;
   nodeVersion?: string;
   pythonVersion?: string;
@@ -140,17 +220,21 @@ export interface RuleScore {
   weight: number;
   earned: number;
   explanation: string;
+  reasonCode?: string;
 }
 
 export interface CategoryScore {
   category: Category;
   score: number | null;
   maxScore: 100;
+  weight: number;
+  coverage: number;
   rules: RuleScore[];
 }
 
 export interface BaselineFinding {
   fingerprint: string;
+  subject: string;
   id: string;
   title: string;
   category: Category;
@@ -159,7 +243,8 @@ export interface BaselineFinding {
 }
 
 export interface BaselineFile {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  fingerprintVersion: 1 | 2;
   createdAt: string;
   projectType: ProjectType;
   scores: Partial<Record<Category, number | null>>;
@@ -167,20 +252,27 @@ export interface BaselineFile {
 }
 
 export interface BaselineComparison {
-  schemaVersion: 1;
+  schemaVersion: 2;
   newFindings: Finding[];
   resolvedFindings: BaselineFinding[];
   unchangedFindings: number;
   scoreDeltas: Partial<Record<Category, number | null>>;
 }
 
+export interface DiffComparison {
+  base: string;
+  changedFiles: string[];
+  findings: Finding[];
+}
+
 export interface AnalysisReport {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   project: ProjectProfile;
   readme: { path: string; lines: number; words: number };
   scores: Partial<Record<Category, CategoryScore>>;
   overall: number;
+  overallCoverage: number;
   findings: Finding[];
   facts: Record<string, unknown>;
   coverage: {
@@ -189,7 +281,9 @@ export interface AnalysisReport {
     notChecked: string[];
   };
   limitations: string[];
+  evidenceGraph: EvidenceGraph;
   baseline?: BaselineComparison;
+  diff?: DiffComparison;
 }
 
 export type ProfileCategory =

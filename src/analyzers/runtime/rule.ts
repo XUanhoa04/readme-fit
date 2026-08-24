@@ -2,6 +2,7 @@ import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 import { pythonRuntimeConstraint } from '../../core/repository/python-metadata.js';
+import { subset, validRange } from 'semver';
 
 interface RuntimeComparison {
   runtime: 'Node' | 'Python';
@@ -10,6 +11,18 @@ interface RuntimeComparison {
   line: number;
   metadataPath: string;
   matches: boolean;
+}
+
+function nodeRange(operator: string | undefined, value: string): string | undefined {
+  const parts = value.split('.').length;
+  const normalizedOperator = operator?.replace(/\s/g, '').replace('v', '') ?? '';
+  const candidate = normalizedOperator ? `${normalizedOperator}${value}` : value;
+  if (normalizedOperator) return validRange(candidate) ?? undefined;
+  if (parts === 1) {
+    const major = Number(value);
+    return Number.isInteger(major) ? `>=${major}.0.0 <${major + 1}.0.0-0` : undefined;
+  }
+  return validRange(value) ?? undefined;
 }
 
 function version(value: string, parts: number): string | undefined {
@@ -26,7 +39,10 @@ function nodeComparison(
   repository: Parameters<Rule['evaluate']>[0]['repository'],
   raw: string,
 ): RuntimeComparison | undefined {
-  const readmeMatch = /Node(?:\.js)?\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)/i.exec(raw);
+  const readmeMatch =
+    /Node(?:\.js)?\s*(?:version\s*)?(>=|>|<=|<|=|~\s*|\^\s*|v)?\s*(\d+(?:\.\d+){0,2})/i.exec(
+      raw,
+    );
   const engine = repository.packageJson?.engines;
   const engineNode =
     engine &&
@@ -36,9 +52,12 @@ function nodeComparison(
       ? engine.node
       : undefined;
   const declared = engineNode ?? repository.nvmrc ?? repository.nodeVersion;
-  const readmeVersion = readmeMatch?.[1];
+  const readmeVersion = readmeMatch?.[2];
   const declaredVersion = declared ? version(declared, 1) : undefined;
   if (!readmeVersion || !declared || !declaredVersion) return undefined;
+  const fromEngine = Boolean(engineNode);
+  const readmeRange = nodeRange(readmeMatch?.[1], readmeVersion);
+  const declaredRange = fromEngine ? validRange(declared) : undefined;
   return {
     runtime: 'Node',
     readmeVersion,
@@ -49,7 +68,10 @@ function nodeComparison(
       : repository.nvmrc
         ? '.nvmrc'
         : '.node-version',
-    matches: readmeVersion === declaredVersion,
+    matches:
+      readmeRange && declaredRange
+        ? subset(readmeRange, declaredRange)
+        : version(readmeVersion, 1) === declaredVersion,
   };
 }
 

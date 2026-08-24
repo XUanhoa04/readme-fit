@@ -1,0 +1,49 @@
+name: readme-fit
+description: Evidence-first README drift checks with pull-request annotations
+author: readme-fit contributors
+
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  path:
+    description: Repository or project path to scan
+    default: .
+  fail-on:
+    description: Severity or category that fails the job
+    default: high
+  fail-on-score:
+    description: Optional minimum overall score
+    default: ''
+  changed-since:
+    description: Optional Git base revision for diff-aware findings
+    default: ''
+  check-links:
+    description: Check public external links
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Audit README
+      shell: bash
+      env:
+        README_FIT_PATH: ${{ inputs.path }}
+        README_FIT_FAIL_ON: ${{ inputs.fail-on }}
+        README_FIT_FAIL_ON_SCORE: ${{ inputs.fail-on-score }}
+        README_FIT_CHANGED_SINCE: ${{ inputs.changed-since }}
+        README_FIT_CHECK_LINKS: ${{ inputs.check-links }}
+      run: |
+        set -euo pipefail
+        args=(scan "$README_FIT_PATH" --format github --no-color --fail-on "$README_FIT_FAIL_ON")
+        if [[ -n "$README_FIT_FAIL_ON_SCORE" ]]; then
+          args+=(--fail-on-score "$README_FIT_FAIL_ON_SCORE")
+        fi
+        if [[ -n "$README_FIT_CHANGED_SINCE" ]]; then
+          args+=(--changed-since "$README_FIT_CHANGED_SINCE")
+        fi
+        if [[ "$README_FIT_CHECK_LINKS" == "true" ]]; then
+          args+=(--check-links)
+        fi
+        npx --yes readme-fit@1 "${args[@]}"

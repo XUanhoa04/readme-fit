@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -87,6 +87,105 @@ describe('CLI behavior', () => {
       1,
     );
     expect(runCli(['scan', 'fixtures/good-cli', '--fail-on', 'critical']).status).toBe(0);
+  });
+
+  it('rejects unknown fail-on values instead of silently passing CI', () => {
+    const result = runCli(['scan', 'fixtures/stale-cli', '--fail-on', 'corectness']);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/Unknown --fail-on value/i);
+  });
+
+  it('supports explicit project and README selection', () => {
+    const selected = runCli([
+      'scan',
+      '.',
+      '--project',
+      'fixtures/good-cli',
+      '--readme',
+      'README.md',
+      '--json',
+    ]);
+    expect(selected.status).toBe(0);
+    const report = JSON.parse(selected.stdout) as { project: { packageName?: string } };
+    expect(report.project.packageName).toBe('good-cli');
+
+    const escaped = runCli(['scan', '.', '--project', '../outside']);
+    expect(escaped.status).toBe(2);
+    expect(escaped.stderr).toMatch(/inside the repository root/i);
+  });
+
+  it('supports CI formats, score gates, finding limits, and atomic output files', () => {
+    const temporary = mkdtempSync(path.join(tmpdir(), 'readme-fit-output-'));
+    try {
+      const sarifPath = path.join(temporary, 'readme-fit.sarif');
+      const sarif = runCli([
+        'scan',
+        'fixtures/stale-cli',
+        '--format',
+        'sarif',
+        '--max-findings',
+        '2',
+        '--output',
+        sarifPath,
+      ]);
+      expect(sarif.status).toBe(0);
+      expect(sarif.stdout).toBe('');
+      const document = JSON.parse(readFileSync(sarifPath, 'utf8')) as {
+        version: string;
+        runs: Array<{ results: unknown[] }>;
+      };
+      expect(document.version).toBe('2.1.0');
+      expect(document.runs[0]?.results).toHaveLength(2);
+
+      const annotations = runCli([
+        'scan',
+        'fixtures/stale-cli',
+        '--format',
+        'github',
+        '--max-findings',
+        '1',
+      ]);
+      expect(
+        annotations.stdout.split('\n').filter((line) => line.startsWith('::')),
+      ).toHaveLength(1);
+
+      expect(
+        runCli(['scan', 'fixtures/good-cli', '--fail-on-score', '100', '--quiet']).status,
+      ).toBe(1);
+      expect(runCli(['scan', 'fixtures/good-cli', '--fail-on-score', '101']).status).toBe(
+        2,
+      );
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it('filters pull-request annotations to files changed since a Git ref', () => {
+    const result = runCli(['scan', '.', '--format', 'github', '--changed-since', 'HEAD']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('findings=0');
+    expect(result.stdout).not.toMatch(/^::/m);
+  });
+
+  it('provides init and doctor lifecycle commands', () => {
+    const temporary = mkdtempSync(path.join(tmpdir(), 'readme-fit-init-'));
+    try {
+      const initialized = runCli(['init', temporary]);
+      expect(initialized.status).toBe(0);
+      expect(readFileSync(path.join(temporary, '.readme-fit.yml'), 'utf8')).toContain(
+        'preset: balanced',
+      );
+      expect(runCli(['init', temporary]).status).toBe(2);
+      writeFileSync(path.join(temporary, 'README.md'), '# Project\n\nA useful project.\n');
+      const doctor = runCli(['doctor', temporary, '--json']);
+      expect(doctor.status).toBe(0);
+      expect(JSON.parse(doctor.stdout)).toMatchObject({ ok: true, readme: 'README.md' });
+      const validated = runCli(['config', 'validate', temporary, '--json']);
+      expect(validated.status).toBe(0);
+      expect(JSON.parse(validated.stdout)).toMatchObject({ version: 2 });
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
   });
 
   it('captures baselines and fails CI only for new regressions', () => {

@@ -1,23 +1,51 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { loadConfig, resolveReadme } from './config/config.js';
 import { parseReadme } from './markdown/parser.js';
 import { inspectRepository, MAX_INSPECTED_TEXT_BYTES } from './repository/inspector.js';
 import type { AnalysisReport, CategoryScore, ProjectProfile } from '../models/index.js';
-import { getRules } from '../rules/registry.js';
 import { classifyProject } from '../classifiers/project-type/classifier.js';
-import '../rules/builtin.js';
+import { createBuiltinRules } from '../rules/builtin.js';
+import type { Rule } from '../rules/types.js';
+import { normalizeRuleScore } from '../rules/helpers.js';
+import { buildEvidenceGraph } from './evidence/graph.js';
+import { categoryWeight } from '../scoring/weights.js';
+
+function isInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
 
 export interface AnalysisOptions {
   checkLinks?: boolean;
+  projectPath?: string;
+  readmePath?: string;
 }
 
 export async function analyzeRepository(
   rootInput: string,
   options: AnalysisOptions = {},
+  rules: readonly Rule[] = createBuiltinRules(),
 ): Promise<AnalysisReport> {
-  const root = path.resolve(rootInput);
-  const config = await loadConfig(root, new Set(getRules().map((rule) => rule.id)));
+  const repositoryRoot = path.resolve(rootInput);
+  const root = options.projectPath
+    ? path.resolve(repositoryRoot, options.projectPath)
+    : repositoryRoot;
+  if (!isInside(repositoryRoot, root)) {
+    throw new Error('projectPath must resolve inside the repository root.');
+  }
+  const [canonicalRepositoryRoot, canonicalProjectRoot] = await Promise.all([
+    realpath(repositoryRoot),
+    realpath(root),
+  ]);
+  if (!isInside(canonicalRepositoryRoot, canonicalProjectRoot)) {
+    throw new Error('projectPath must resolve inside the repository root.');
+  }
+  const config = await loadConfig(root, new Set(rules.map((rule) => rule.id)));
+  if (options.readmePath !== undefined) {
+    if (!options.readmePath.trim()) throw new Error('readmePath must not be empty.');
+    config.readme.path = options.readmePath;
+  }
   const repository = await inspectRepository(root, config.ignore.paths);
   const readmePath = resolveReadme(root, config);
   let raw: string;
@@ -28,25 +56,42 @@ export async function analyzeRepository(
         `${path.relative(root, readmePath)} exceeds the ${MAX_INSPECTED_TEXT_BYTES}-byte static inspection limit.`,
       );
     }
-    raw = await readFile(readmePath, 'utf8');
+    const [canonicalRoot, canonicalReadme] = await Promise.all([
+      realpath(root),
+      realpath(readmePath),
+    ]);
+    if (!isInside(canonicalRoot, canonicalReadme)) {
+      throw new Error('Configured README resolves outside the repository root.');
+    }
+    raw = await readFile(canonicalReadme, 'utf8');
   } catch (error) {
-    if (error instanceof Error && /static inspection limit/.test(error.message))
+    if (
+      error instanceof Error &&
+      /static inspection limit|outside the repository root/.test(error.message)
+    )
       throw error;
     throw new Error(`README not found: ${path.relative(root, readmePath)}`);
   }
   const readme = parseReadme(raw, path.relative(root, readmePath).replaceAll('\\', '/'));
   const project: ProjectProfile = classifyProject(repository, config.project.type);
+  const evidenceGraph = buildEvidenceGraph(repository, readme);
   const context = {
     repository,
     readme,
     project,
     config,
     options: { checkLinks: Boolean(options.checkLinks) },
+    evidenceGraph,
   };
   const findings = [];
   const scores: AnalysisReport['scores'] = {};
-  const facts: Record<string, unknown> = { fileCount: repository.files.length };
-  for (const rule of getRules()) {
+  const facts: Record<string, unknown> = {
+    fileCount: repository.files.length,
+    repositoryInspection: repository.inspection,
+    workspace: repository.workspace,
+    projectPath: options.projectPath?.replaceAll('\\', '/').replace(/\/$/, '') || '.',
+  };
+  for (const rule of rules) {
     const configKey =
       rule.category === 'visual-proof'
         ? 'visual_proof'
@@ -55,18 +100,41 @@ export async function analyzeRepository(
           : rule.category;
     if (
       config.rules[configKey] === false ||
+      config.ruleOverrides[rule.id]?.enabled === false ||
       config.ignore.rules.includes(rule.id) ||
       !rule.applies(context)
     )
       continue;
     const result = await rule.evaluate(context);
     findings.push(...result.findings);
-    Object.assign(facts, result.facts);
+    for (const [key, value] of Object.entries(result.facts ?? {})) {
+      if (key in facts) throw new Error(`Duplicate analysis fact key: ${key}`);
+      facts[key] = value;
+    }
     const category = rule.category;
     const existing =
       scores[category] ??
-      ({ category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore);
-    existing.rules.push(result.score);
+      ({
+        category,
+        score: 0,
+        maxScore: 100,
+        weight: categoryWeight(category, project.primaryType, config.scoring.preset),
+        coverage: 0,
+        rules: [],
+      } satisfies CategoryScore);
+    const normalized = normalizeRuleScore(result.score);
+    const overrideWeight = config.ruleOverrides[rule.id]?.weight;
+    existing.rules.push(
+      overrideWeight === undefined || normalized.status === 'not_applicable'
+        ? normalized
+        : {
+            ...normalized,
+            weight: overrideWeight,
+            earned: normalized.weight
+              ? Math.round((normalized.earned / normalized.weight) * overrideWeight)
+              : 0,
+          },
+    );
     scores[category] = existing;
   }
   for (const score of Object.values(scores)) {
@@ -76,6 +144,7 @@ export async function analyzeRepository(
     score.score = max
       ? Math.round((applicable.reduce((sum, rule) => sum + rule.earned, 0) / max) * 100)
       : null;
+    score.coverage = score.score === null ? 0 : 100;
   }
   const impressionFacts: Record<string, unknown> = {};
   for (const key of [
@@ -88,15 +157,28 @@ export async function analyzeRepository(
     if (key in facts) impressionFacts[key.split('.')[1] ?? key] = facts[key];
   }
   facts.firstImpression = impressionFacts;
-  const numeric = Object.values(scores).flatMap((score) => score?.score ?? []);
+  const coveredScores = Object.values(scores).filter((score): score is CategoryScore =>
+    Boolean(score && score.score !== null && score.weight > 0),
+  );
+  const configuredCategoryWeight = Object.values(scores).reduce(
+    (sum, score) => sum + (score?.weight ?? 0),
+    0,
+  );
+  const coveredCategoryWeight = coveredScores.reduce((sum, score) => sum + score.weight, 0);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     project,
     readme: { path: readme.path, lines: readme.lineCount, words: readme.wordCount },
     scores,
-    overall: numeric.length
-      ? Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length)
+    overall: coveredCategoryWeight
+      ? Math.round(
+          coveredScores.reduce((sum, score) => sum + (score.score ?? 0) * score.weight, 0) /
+            coveredCategoryWeight,
+        )
+      : 0,
+    overallCoverage: configuredCategoryWeight
+      ? Math.round((coveredCategoryWeight / configuredCategoryWeight) * 100)
       : 0,
     findings: findings.sort((a, b) => {
       const severityDiff =
@@ -132,6 +214,9 @@ export async function analyzeRepository(
         ...(!options.checkLinks ? ['external URL health'] : []),
         'commands were not executed',
         'demo/video content',
+        ...(repository.inspection.truncated
+          ? [`files beyond the ${repository.inspection.fileLimit}-file inspection limit`]
+          : []),
       ],
     },
     limitations: [
@@ -139,6 +224,17 @@ export async function analyzeRepository(
       options.checkLinks
         ? 'External URL responses were checked, but linked content quality was not analyzed.'
         : 'External URLs and linked media content are not fetched by default.',
+      ...(repository.inspection.truncated
+        ? [
+            `Repository inspection stopped at ${repository.inspection.fileLimit} files; classification and evidence may be incomplete.`,
+          ]
+        : []),
+      ...(project.rubricStatus !== 'stable'
+        ? [
+            `${project.primaryType} classification is supported, but its completeness rubric is ${project.rubricStatus}.`,
+          ]
+        : []),
     ],
+    evidenceGraph,
   };
 }

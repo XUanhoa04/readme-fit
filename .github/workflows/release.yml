@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    env:
+      README_FIT_RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Use an OIDC-capable npm CLI
+        run: npm install --global npm@11.19.0
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:coverage
+      - run: npm run test:package
+      - run: npm run benchmark
+      - run: npm run dogfood
+      - run: npm audit --audit-level=high
+      - run: npm audit signatures
+      - run: npm run release:check
+      - name: Generate release SBOM
+        run: npm run sbom > readme-fit.cdx.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: readme-fit-${{ github.event.release.tag_name }}-sbom
+          path: readme-fit.cdx.json
+          if-no-files-found: error
+      - name: Publish to npm with trusted provenance
+        run: npm publish --access public

@@ -1,5 +1,6 @@
 import pc from 'picocolors';
 import type { AnalysisReport, Category, Finding } from '../models/index.js';
+import { reportFindings } from '../core/git-diff.js';
 
 const LABELS: Record<Category, string> = {
   correctness: 'Correctness',
@@ -123,7 +124,7 @@ export function renderTerminal(
   options: TerminalRenderOptions = {},
 ): string {
   if (options.quiet) {
-    const candidates = report.baseline?.newFindings ?? report.findings;
+    const candidates = reportFindings(report);
     const critical = candidates.filter((finding) => finding.severity === 'critical');
     return (
       [
@@ -143,7 +144,7 @@ export function renderTerminal(
   const scoreLines = Object.entries(report.scores).map(([category, score]) =>
     scoreLine(LABELS[category as Category], score?.score ?? null),
   );
-  const candidates = report.baseline?.newFindings ?? report.findings;
+  const candidates = reportFindings(report);
   const top = candidates.filter((finding) => finding.severity !== 'info').slice(0, 6);
   const impression = impressionData(report);
   const verboseRules = options.verbose
@@ -172,6 +173,9 @@ export function renderTerminal(
       `Type        ${projectTypes}`,
       `README      ${report.readme.path}`,
       `Files       ${String(fileCount)}`,
+      ...(report.project.workspace.isMonorepo
+        ? [`Workspace   ${report.project.workspace.packageCount} packages`]
+        : []),
       `Language    ${report.project.languages.join(', ') || 'Unknown'}`,
       '',
       pc.bold('README FIT'),
@@ -179,6 +183,7 @@ export function renderTerminal(
       ...scoreLines,
       '',
       scoreLine('Overall', report.overall),
+      `Scoring coverage      ${String(report.overallCoverage).padStart(3)}%`,
       '',
       ...renderBaseline(report),
       pc.bold('TOP PRIORITIES'),

@@ -1,5 +1,5 @@
 import type { Rule } from '../../rules/types.js';
-import { failScore, finding, passScore } from '../../rules/helpers.js';
+import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 
 export const badgeRule: Rule = {
@@ -25,6 +25,16 @@ export const badgeRule: Rule = {
       project.primaryType,
       config.scoring.preset,
     );
+    if (!badges.length) {
+      return {
+        score: naScore(
+          'trust.badges.signal-to-noise',
+          'No badges exist, so badge signal-to-noise is not applicable.',
+        ),
+        findings: [],
+        facts: { badges: { count: 0, earlyCount: 0, possibleDuplicates: 0 } },
+      };
+    }
     return {
       score:
         wall || duplicates.length

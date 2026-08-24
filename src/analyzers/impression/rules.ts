@@ -1,7 +1,8 @@
 import type { Rule } from '../../rules/types.js';
-import { failScore, finding, passScore } from '../../rules/helpers.js';
+import { failScore, finding, partialScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 import { firstSuccessCommand } from '../onboarding/facts.js';
+import { productProofs } from '../visuals/rules.js';
 
 export function outcomeSignals(opening: string): string[] {
   const prose = opening
@@ -51,15 +52,17 @@ function metricRule(input: {
         score:
           result.status === 'yes'
             ? passScore(input.id, weight, result.evidence)
-            : failScore(input.id, weight, earned, result.evidence),
+            : result.status === 'partly'
+              ? partialScore(input.id, weight, earned, result.evidence)
+              : failScore(input.id, weight, earned, result.evidence),
         findings:
-          result.status === 'no'
+          result.status !== 'yes'
             ? [
                 finding({
                   id: input.id,
                   category: 'impression',
-                  severity: 'medium',
-                  priority: 'P2',
+                  severity: result.status === 'partly' ? 'low' : 'medium',
+                  priority: result.status === 'partly' ? 'P3' : 'P2',
                   confidence: 'medium',
                   deterministic: false,
                   title: input.title,
@@ -94,7 +97,11 @@ export const impressionRules: Rule[] = [
       const hero = readme.raw
         .split(/\r?\n/)
         .slice(0, firstH2 - 1)
-        .join(' ')
+        .join('\n')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/!?\[[^\]]*\]\([^)]*\)/g, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\n/g, ' ')
         .replace(/[#>*`()!]/g, ' ')
         .replaceAll('[', ' ')
         .replaceAll(']', ' ');
@@ -131,26 +138,15 @@ export const impressionRules: Rule[] = [
     recommendation:
       'Place the smallest representative screenshot, terminal output, or demo near the first use path.',
     test: (_raw, { readme }) => {
-      const earlyImage = readme.images.some(
-        (image) =>
-          image.line <= 40 &&
-          !/badge|shield|logo|banner|avatar|icon/i.test(`${image.url} ${image.text}`),
-      );
-      const earlyOutput = readme.codeBlocks.some(
-        (block) =>
-          block.line <= 50 && /(?:✓|score|found|success|\d+\/100)/i.test(block.value),
-      );
+      const proofs = productProofs(readme);
+      const earlyProof = proofs.some((proof) => proof.line <= 50);
       return {
-        status:
-          earlyImage || earlyOutput
-            ? 'yes'
-            : readme.images.length || readme.codeBlocks.length > 1
-              ? 'partly'
-              : 'no',
-        evidence:
-          earlyImage || earlyOutput
-            ? 'Representative proof appears within the first 50 lines.'
-            : 'No clear product proof appears within the first 50 lines.',
+        status: earlyProof ? 'yes' : proofs.length ? 'partly' : 'no',
+        evidence: earlyProof
+          ? 'Representative product proof appears within the first 50 lines.'
+          : proofs.length
+            ? `Product proof exists, but the first example appears at line ${Math.min(...proofs.map((proof) => proof.line))}.`
+            : 'No representative screenshot, recording, or output was detected; generic images and code examples are not treated as proof.',
       };
     },
   }),
@@ -173,14 +169,40 @@ export const impressionRules: Rule[] = [
     title: 'Trust signals are not visible',
     recommendation:
       'Expose accurate license, testing/CI, release, or limitation information without adding decorative badge noise.',
-    test: (_raw, { repository, project }) => {
-      const signals =
-        Number(project.hasLicense) +
-        Number(project.hasTests) +
-        Number(repository.files.some((file) => /^\.github\/workflows\//.test(file)));
+    test: (_raw, { readme }) => {
+      const openingLines = readme.raw.split(/\r?\n/).slice(0, 60);
+      const opening = openingLines.join('\n');
+      const visibleSignals = [
+        {
+          name: 'license',
+          present:
+            /(?:^|\n)\s{0,3}(?:#{1,6}\s+)?license\b|\blicensed under\b|\blicense:\s*(?:mit|apache|bsd|mpl|gpl|isc)/i.test(
+              opening,
+            ),
+        },
+        {
+          name: 'tests/CI',
+          present:
+            /(?:github\.com\/[^\s)]+\/actions\/workflows|\b(?:build|tests?|ci)\s*(?:status|passing|badge)|\btested (?:on|with|against)\b)/i.test(
+              opening,
+            ),
+        },
+        {
+          name: 'release/limitations',
+          present:
+            /(?:^|\n)\s{0,3}(?:#{1,6}\s+)?(?:releases?|changelog|limitations?|known issues?|security)\b/i.test(
+              opening,
+            ),
+        },
+      ];
+      const detected = visibleSignals
+        .filter((signal) => signal.present)
+        .map((signal) => signal.name);
       return {
-        status: signals >= 2 ? 'yes' : signals === 1 ? 'partly' : 'no',
-        evidence: `${signals} of 3 core repository trust signals were found: license, tests, CI.`,
+        status: detected.length >= 2 ? 'yes' : detected.length === 1 ? 'partly' : 'no',
+        evidence: detected.length
+          ? `${detected.length} README-visible trust signal(s) appear in the first 60 lines: ${detected.join(', ')}.`
+          : 'No explicit license, test/CI, release, security, or limitation signal is visible in the first 60 lines.',
       };
     },
   }),

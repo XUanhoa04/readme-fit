@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title description">
+  <title id="title">readme-fit pull request annotations</title>
+  <desc id="description">A dark terminal and pull request panel showing three deterministic README regressions.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-opacity="0.35"/></filter>
+  </defs>
+  <rect width="1200" height="520" rx="24" fill="url(#background)"/>
+  <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace">
+    <rect x="48" y="42" width="1104" height="436" rx="16" fill="#0d1117" stroke="#30363d" filter="url(#shadow)"/>
+    <circle cx="78" cy="72" r="7" fill="#ff7b72"/>
+    <circle cx="102" cy="72" r="7" fill="#d29922"/>
+    <circle cx="126" cy="72" r="7" fill="#3fb950"/>
+    <text x="156" y="79" fill="#8b949e" font-size="18">README checks / pull request</text>
+    <text x="78" y="128" fill="#f0f6fc" font-size="22" font-weight="700">readme-fit</text>
+    <text x="1030" y="128" fill="#ff7b72" font-size="22" font-weight="700">32/100</text>
+    <line x1="78" y1="150" x2="1122" y2="150" stroke="#21262d"/>
+    <rect x="78" y="174" width="1044" height="72" rx="10" fill="#24151a" stroke="#6e2b33"/>
+    <text x="98" y="202" fill="#ff7b72" font-size="17" font-weight="700">P0 · License claim conflicts with repository</text>
+    <text x="98" y="228" fill="#c9d1d9" font-size="15">README.md:15 · Apache-2.0 claim ↔ MIT local evidence</text>
+    <rect x="78" y="260" width="1044" height="72" rx="10" fill="#24151a" stroke="#6e2b33"/>
+    <text x="98" y="288" fill="#ff7b72" font-size="17" font-weight="700">P0 · Package name may be stale</text>
+    <text x="98" y="314" fill="#c9d1d9" font-size="15">README.md:53 · wrong-package ↔ package.json name stale-cli</text>
+    <rect x="78" y="346" width="1044" height="72" rx="10" fill="#24151a" stroke="#6e2b33"/>
+    <text x="98" y="374" fill="#ff7b72" font-size="17" font-weight="700">P0 · README command may be stale</text>
+    <text x="98" y="400" fill="#c9d1d9" font-size="15">README.md:54 · npm run dev ↔ script does not exist</text>
+    <text x="78" y="452" fill="#58a6ff" font-size="15">static evidence · no target code executed · SARIF + annotations</text>
+  </g>
+</svg>

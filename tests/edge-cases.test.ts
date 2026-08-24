@@ -63,9 +63,41 @@ describe('analysis edge cases and scoring math', () => {
         : null;
       expect(category.score).toBe(expected);
     }
-    const numeric = Object.values(report.scores).flatMap((score) => score?.score ?? []);
+    const covered = Object.values(report.scores).filter(
+      (score) => score && score.score !== null && score.weight > 0,
+    );
+    const totalWeight = covered.reduce((sum, score) => sum + (score?.weight ?? 0), 0);
     expect(report.overall).toBe(
-      Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length),
+      Math.round(
+        covered.reduce(
+          (sum, score) => sum + (score?.score ?? 0) * (score?.weight ?? 0),
+          0,
+        ) / totalWeight,
+      ),
+    );
+    expect(report.overallCoverage).toBeGreaterThan(0);
+  });
+
+  it('keeps every rule and report score inside the documented range', async () => {
+    await temporaryRepository(
+      {
+        'README.md':
+          '# Project\n\nA useful project for maintainers.\n\n### Skipped\n\nBody.\n',
+        '.readme-fit.yml': 'scoring:\n  preset: minimal\n',
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        for (const category of Object.values(report.scores)) {
+          if (!category) continue;
+          expect(category.score === null || category.score <= 100).toBe(true);
+          for (const rule of category.rules) {
+            expect(rule.earned).toBeGreaterThanOrEqual(0);
+            expect(rule.earned).toBeLessThanOrEqual(rule.weight);
+          }
+        }
+        expect(report.overall).toBeGreaterThanOrEqual(0);
+        expect(report.overall).toBeLessThanOrEqual(100);
+      },
     );
   });
 
@@ -96,6 +128,45 @@ describe('analysis edge cases and scoring math', () => {
           (r) => r.id === 'correctness.license.matches',
         );
         expect(licenseRuleResult?.status).toBe('pass');
+      },
+    );
+  });
+
+  it('checks npx package targets as repository claims', async () => {
+    await temporaryRepository(
+      {
+        'README.md': '# Tool\n\nUseful tool.\n\n```bash\nnpx wrong-tool scan\n```\n',
+        'package.json': JSON.stringify({
+          name: 'real-tool',
+          bin: { 'real-tool': 'dist/cli.js' },
+        }),
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        expect(
+          report.findings.some(
+            (finding) => finding.id === 'correctness.package-name.matches',
+          ),
+        ).toBe(true);
+      },
+    );
+  });
+
+  it('surfaces malformed pyproject metadata', async () => {
+    await temporaryRepository(
+      {
+        'README.md': '# Python tool\n\nUseful package.\n',
+        'pyproject.toml': '[project\nname = "broken"\n',
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        expect(
+          report.findings.some(
+            (finding) =>
+              finding.id === 'correctness.metadata.parseable' &&
+              finding.source?.path === 'pyproject.toml',
+          ),
+        ).toBe(true);
       },
     );
   });

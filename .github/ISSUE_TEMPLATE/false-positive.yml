@@ -1,0 +1,43 @@
+name: False positive
+description: Report a finding whose evidence or applicability is wrong
+title: 'false-positive: '
+labels: [false-positive]
+body:
+  - type: input
+    id: rule
+    attributes:
+      label: Rule ID
+      placeholder: correctness.command.exists
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and exact command
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Minimal README and repository evidence
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual finding
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Why the rule should pass, be partial, or be not applicable
+    validations:
+      required: true
+  - type: dropdown
+    id: rubric
+    attributes:
+      label: Rubric maturity
+      options: [stable, experimental, unknown]
+    validations:
+      required: true
