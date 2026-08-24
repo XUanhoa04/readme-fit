@@ -235,15 +235,25 @@ export const externalLinkRule: Rule = {
       };
     }
     const links = readme.links.filter((link) => isExternal(link.url));
-    const results = await checkExternalLinks(links.map((link) => link.url));
-    const broken = results.filter((result) => result.status === 'broken');
-    const unverified = results.filter((result) => result.status === 'unverified');
-    const skipped = results.filter((result) => result.status === 'skipped');
     const weight = ruleWeight(
       'correctness.external-link.reachable',
       project.primaryType,
       config.scoring.preset,
     );
+    if (!links.length) {
+      return {
+        score: naScore(
+          'correctness.external-link.reachable',
+          'No external link claim was found.',
+        ),
+        findings: [],
+        facts: { externalLinksChecked: 0 },
+      };
+    }
+    const results = await checkExternalLinks(links.map((link) => link.url));
+    const broken = results.filter((result) => result.status === 'broken');
+    const unverified = results.filter((result) => result.status === 'unverified');
+    const skipped = results.filter((result) => result.status === 'skipped');
     return {
       score: broken.length
         ? failScore(

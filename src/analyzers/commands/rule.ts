@@ -1,5 +1,5 @@
 import type { Rule } from '../../rules/types.js';
-import { failScore, finding, passScore } from '../../rules/helpers.js';
+import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 import { parseReadmeCommands } from '../../core/claims/commands.js';
 
@@ -23,6 +23,16 @@ export const commandExistsRule: Rule = {
     const commands = parseReadmeCommands(readme).filter(
       (command): command is typeof command & { script: string } => Boolean(command.script),
     );
+    if (!commands.length) {
+      return {
+        score: naScore(
+          'correctness.command.exists',
+          'No package-script command claim was found.',
+        ),
+        findings: [],
+        facts: { documentedPackageCommands: [] },
+      };
+    }
     const invalid = commands.filter((item) => !(item.script in scripts));
     return {
       score: invalid.length

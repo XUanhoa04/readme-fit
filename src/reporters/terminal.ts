@@ -182,6 +182,7 @@ export function renderTerminal(
       ...scoreLines,
       '',
       scoreLine('Overall', report.overall),
+      `Scoring coverage      ${String(report.overallCoverage).padStart(3)}%`,
       '',
       ...renderBaseline(report),
       pc.bold('TOP PRIORITIES'),

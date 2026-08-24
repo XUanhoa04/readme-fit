@@ -4,6 +4,7 @@ import type {
   ProjectType,
   RepositorySnapshot,
 } from '../../models/index.js';
+import { rubricStatus } from '../../scoring/weights.js';
 import { pythonPackageName } from '../../core/repository/python-metadata.js';
 
 const EXTENSION_LANGUAGES: Record<string, string> = {
@@ -281,6 +282,7 @@ export function classifyProject(
     hasLicense: Boolean(repository.licenseText),
     entrypoints,
     confidence: configured ? 1 : confidenceFor(signals),
+    rubricStatus: rubricStatus(primaryType),
     classificationEvidence: signals,
     workspace: {
       isMonorepo: repository.workspace.isMonorepo,

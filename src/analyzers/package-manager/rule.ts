@@ -1,5 +1,5 @@
 import type { Rule } from '../../rules/types.js';
-import { failScore, finding, passScore } from '../../rules/helpers.js';
+import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 
 export const packageManagerRule: Rule = {
@@ -16,6 +16,18 @@ export const packageManagerRule: Rule = {
       project.primaryType,
       config.scoring.preset,
     );
+    const rootLockfiles = repository.files.filter((file) =>
+      /^(?:package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$/.test(file),
+    );
+    if (!rootLockfiles.length) {
+      return {
+        score: naScore(
+          'correctness.package-manager.consistent',
+          'No root JavaScript lockfile exists to establish a package manager.',
+        ),
+        findings: [],
+      };
+    }
     return {
       score: conflicts.length
         ? failScore(

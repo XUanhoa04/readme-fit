@@ -1,7 +1,7 @@
 import { access, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import type { Rule } from '../../rules/types.js';
-import { failScore, finding, passScore } from '../../rules/helpers.js';
+import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 
 function isRelative(url: string): boolean {
@@ -70,6 +70,16 @@ export const relativeLinkRule: Rule = {
     const candidates = readme.links.filter(
       (link) => isRelative(link.url) || link.url.startsWith('#'),
     );
+    if (!candidates.length) {
+      return {
+        score: naScore(
+          'correctness.link.exists',
+          'No relative link or anchor claim was found.',
+        ),
+        findings: [],
+        facts: { relativeLinks: 0, brokenRelativeLinks: 0 },
+      };
+    }
     const broken = [];
     const readmeDirectory = path.dirname(path.join(repository.root, readme.path));
     const absoluteReadme = path.resolve(repository.root, readme.path);

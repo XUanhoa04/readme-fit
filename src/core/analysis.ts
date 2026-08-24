@@ -9,6 +9,7 @@ import { classifyProject } from '../classifiers/project-type/classifier.js';
 import '../rules/builtin.js';
 import { normalizeRuleScore } from '../rules/helpers.js';
 import { buildEvidenceGraph } from './evidence/graph.js';
+import { categoryWeight } from '../scoring/weights.js';
 
 function isInside(root: string, target: string): boolean {
   const relative = path.relative(root, target);
@@ -110,7 +111,14 @@ export async function analyzeRepository(
     const category = rule.category;
     const existing =
       scores[category] ??
-      ({ category, score: 0, maxScore: 100, rules: [] } satisfies CategoryScore);
+      ({
+        category,
+        score: 0,
+        maxScore: 100,
+        weight: categoryWeight(category, project.primaryType, config.scoring.preset),
+        coverage: 0,
+        rules: [],
+      } satisfies CategoryScore);
     existing.rules.push(normalizeRuleScore(result.score));
     scores[category] = existing;
   }
@@ -121,6 +129,7 @@ export async function analyzeRepository(
     score.score = max
       ? Math.round((applicable.reduce((sum, rule) => sum + rule.earned, 0) / max) * 100)
       : null;
+    score.coverage = score.score === null ? 0 : 100;
   }
   const impressionFacts: Record<string, unknown> = {};
   for (const key of [
@@ -133,15 +142,28 @@ export async function analyzeRepository(
     if (key in facts) impressionFacts[key.split('.')[1] ?? key] = facts[key];
   }
   facts.firstImpression = impressionFacts;
-  const numeric = Object.values(scores).flatMap((score) => score?.score ?? []);
+  const coveredScores = Object.values(scores).filter((score): score is CategoryScore =>
+    Boolean(score && score.score !== null && score.weight > 0),
+  );
+  const configuredCategoryWeight = Object.values(scores).reduce(
+    (sum, score) => sum + (score?.weight ?? 0),
+    0,
+  );
+  const coveredCategoryWeight = coveredScores.reduce((sum, score) => sum + score.weight, 0);
   return {
     schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     project,
     readme: { path: readme.path, lines: readme.lineCount, words: readme.wordCount },
     scores,
-    overall: numeric.length
-      ? Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length)
+    overall: coveredCategoryWeight
+      ? Math.round(
+          coveredScores.reduce((sum, score) => sum + (score.score ?? 0) * score.weight, 0) /
+            coveredCategoryWeight,
+        )
+      : 0,
+    overallCoverage: configuredCategoryWeight
+      ? Math.round((coveredCategoryWeight / configuredCategoryWeight) * 100)
       : 0,
     findings: findings.sort((a, b) => {
       const severityDiff =
@@ -190,6 +212,11 @@ export async function analyzeRepository(
       ...(repository.inspection.truncated
         ? [
             `Repository inspection stopped at ${repository.inspection.fileLimit} files; classification and evidence may be incomplete.`,
+          ]
+        : []),
+      ...(project.rubricStatus !== 'stable'
+        ? [
+            `${project.primaryType} classification is supported, but its completeness rubric is ${project.rubricStatus}.`,
           ]
         : []),
     ],

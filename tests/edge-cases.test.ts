@@ -63,10 +63,19 @@ describe('analysis edge cases and scoring math', () => {
         : null;
       expect(category.score).toBe(expected);
     }
-    const numeric = Object.values(report.scores).flatMap((score) => score?.score ?? []);
-    expect(report.overall).toBe(
-      Math.round(numeric.reduce((sum, score) => sum + score, 0) / numeric.length),
+    const covered = Object.values(report.scores).filter(
+      (score) => score && score.score !== null && score.weight > 0,
     );
+    const totalWeight = covered.reduce((sum, score) => sum + (score?.weight ?? 0), 0);
+    expect(report.overall).toBe(
+      Math.round(
+        covered.reduce(
+          (sum, score) => sum + (score?.score ?? 0) * (score?.weight ?? 0),
+          0,
+        ) / totalWeight,
+      ),
+    );
+    expect(report.overallCoverage).toBeGreaterThan(0);
   });
 
   it('keeps every rule and report score inside the documented range', async () => {

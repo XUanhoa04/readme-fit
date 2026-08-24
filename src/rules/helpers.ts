@@ -47,6 +47,15 @@ export function failScore(id: string, weight: number, earned: number, explanatio
   return { id, status: 'fail' as const, weight, earned, explanation };
 }
 
+export function partialScore(
+  id: string,
+  weight: number,
+  earned: number,
+  explanation: string,
+) {
+  return { id, status: 'partial' as const, weight, earned, explanation };
+}
+
 export function naScore(id: string, explanation: string) {
   return { id, status: 'not_applicable' as const, weight: 0, earned: 0, explanation };
 }

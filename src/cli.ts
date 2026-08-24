@@ -118,7 +118,7 @@ program
             const hasFailure = report.baseline
               ? candidateFindings.some((finding) => finding.category === options.failOn)
               : report.scores[options.failOn as keyof typeof report.scores]?.rules.some(
-                  (rule) => rule.status === 'fail',
+                  (rule) => rule.status === 'fail' || rule.status === 'partial',
                 );
             if (hasFailure) process.exitCode = 1;
           }

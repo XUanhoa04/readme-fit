@@ -11,7 +11,7 @@ export type Category =
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Confidence = 'high' | 'medium' | 'low';
 export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
-export type RuleStatus = 'pass' | 'fail' | 'not_applicable';
+export type RuleStatus = 'pass' | 'partial' | 'fail' | 'not_applicable';
 export type VerificationState =
   'verified' | 'contradicted' | 'unverified' | 'not_applicable' | 'skipped';
 export type ClaimKind = 'command' | 'package' | 'runtime' | 'license' | 'link';
@@ -109,6 +109,7 @@ export interface ProjectProfile {
   entrypoints: string[];
   packageName?: string;
   confidence: number;
+  rubricStatus: 'stable' | 'experimental' | 'unknown';
   classificationEvidence: Array<{
     type: ProjectType;
     score: number;
@@ -219,12 +220,15 @@ export interface RuleScore {
   weight: number;
   earned: number;
   explanation: string;
+  reasonCode?: string;
 }
 
 export interface CategoryScore {
   category: Category;
   score: number | null;
   maxScore: 100;
+  weight: number;
+  coverage: number;
   rules: RuleScore[];
 }
 
@@ -262,6 +266,7 @@ export interface AnalysisReport {
   readme: { path: string; lines: number; words: number };
   scores: Partial<Record<Category, CategoryScore>>;
   overall: number;
+  overallCoverage: number;
   findings: Finding[];
   facts: Record<string, unknown>;
   coverage: {
