@@ -25,4 +25,16 @@ export default tseslint.config(
       '@typescript-eslint/no-confusing-void-expression': 'off',
     },
   },
+  {
+    files: ['scripts/**/*.mjs', 'tests/schemas.test.ts'],
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+    },
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly' },
+    },
+  },
 );
