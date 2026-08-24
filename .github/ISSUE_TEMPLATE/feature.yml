@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a repository-evidence capability or workflow improvement
+title: 'feat: '
+labels: [enhancement]
+body:
+  - type: textarea
+    id: pain
+    attributes:
+      label: User pain
+      description: What README failure is currently missed, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Available repository evidence
+      description: Explain how the behavior can be checked without executing target code.
+    validations:
+      required: true
+  - type: textarea
+    id: edge
+    attributes:
+      label: Edge cases and false-positive boundary
+    validations:
+      required: true

@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a crash or deterministic behavior that is incorrect
+title: 'bug: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Remove secrets and use the smallest repository fixture that reproduces the bug.
+  - type: input
+    id: version
+    attributes:
+      label: readme-fit version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and output
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the relevant README, manifest, config, and platform.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Security boundary
+      options:
+        - label: This does not involve path escape, SSRF, command execution, or private data exposure.
+          required: true
