@@ -12,6 +12,9 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Confidence = 'high' | 'medium' | 'low';
 export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
 export type RuleStatus = 'pass' | 'fail' | 'not_applicable';
+export type VerificationState =
+  'verified' | 'contradicted' | 'unverified' | 'not_applicable' | 'skipped';
+export type ClaimKind = 'command' | 'package' | 'runtime' | 'license' | 'link';
 
 export type ProjectType =
   | 'cli'
@@ -39,6 +42,44 @@ export interface Evidence {
   path?: string;
   line?: number;
   value?: unknown;
+}
+
+export interface SourceReference {
+  path: string;
+  line?: number;
+  column?: number;
+}
+
+export interface Claim {
+  id: string;
+  kind: ClaimKind;
+  subject: string;
+  raw: string;
+  normalized: unknown;
+  source: SourceReference;
+  confidence: Confidence;
+}
+
+export interface RepositoryEvidence {
+  id: string;
+  kind: ClaimKind;
+  subject: string;
+  value: unknown;
+  source: SourceReference;
+}
+
+export interface Verification {
+  claimId: string;
+  state: VerificationState;
+  evidenceIds: string[];
+  reasonCode: string;
+  message: string;
+}
+
+export interface EvidenceGraph {
+  claims: Claim[];
+  evidence: RepositoryEvidence[];
+  verifications: Verification[];
 }
 
 export interface Finding {
@@ -181,7 +222,7 @@ export interface BaselineComparison {
 }
 
 export interface AnalysisReport {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   project: ProjectProfile;
   readme: { path: string; lines: number; words: number };
@@ -195,6 +236,7 @@ export interface AnalysisReport {
     notChecked: string[];
   };
   limitations: string[];
+  evidenceGraph: EvidenceGraph;
   baseline?: BaselineComparison;
 }
 

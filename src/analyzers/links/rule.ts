@@ -8,6 +8,40 @@ function isRelative(url: string): boolean {
   return Boolean(url) && !/^(?:[a-z]+:|\/\/|#)/i.test(url);
 }
 
+function headingAnchors(
+  headings: Array<{ text: string }>,
+  htmlBlocks: Array<{ value: string }>,
+): Set<string> {
+  const anchors = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const heading of headings) {
+    const base = heading.text
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+      .replace(/\s+/g, '-');
+    const count = counts.get(base) ?? 0;
+    counts.set(base, count + 1);
+    anchors.add(count ? `${base}-${count}` : base);
+  }
+  for (const block of htmlBlocks) {
+    for (const match of block.value.matchAll(/\b(?:id|name)=["']([^"']+)["']/gi)) {
+      if (match[1]) anchors.add(match[1].toLowerCase());
+    }
+  }
+  return anchors;
+}
+
+function fragmentOf(url: string): string | undefined {
+  const hash = url.indexOf('#');
+  if (hash < 0 || hash === url.length - 1) return undefined;
+  try {
+    return decodeURIComponent(url.slice(hash + 1)).toLowerCase();
+  } catch {
+    return url.slice(hash + 1).toLowerCase();
+  }
+}
+
 function cleanUrl(url: string): string {
   try {
     return decodeURIComponent(url.split(/[?#]/, 1)[0] ?? '');
@@ -33,11 +67,25 @@ export const relativeLinkRule: Rule = {
       project.primaryType,
       config.scoring.preset,
     );
-    const candidates = readme.links.filter((link) => isRelative(link.url));
+    const candidates = readme.links.filter(
+      (link) => isRelative(link.url) || link.url.startsWith('#'),
+    );
     const broken = [];
     const readmeDirectory = path.dirname(path.join(repository.root, readme.path));
-    const canonicalRoot = await realpath(repository.root);
+    const absoluteReadme = path.resolve(repository.root, readme.path);
+    const anchors = headingAnchors(readme.headings, readme.htmlBlocks);
+    const [canonicalRoot, canonicalReadme] = await Promise.all([
+      realpath(repository.root),
+      realpath(absoluteReadme),
+    ]);
     for (const link of candidates) {
+      const fragment = fragmentOf(link.url);
+      if (link.url.startsWith('#')) {
+        if (fragment && !anchors.has(fragment)) {
+          broken.push({ ...link, reason: `heading anchor #${fragment} does not exist` });
+        }
+        continue;
+      }
       const target = path.resolve(readmeDirectory, cleanUrl(link.url));
       if (!isInside(repository.root, target)) {
         broken.push({ ...link, reason: 'target escapes repository root' });
@@ -48,6 +96,12 @@ export const relativeLinkRule: Rule = {
         const canonicalTarget = await realpath(target);
         if (!isInside(canonicalRoot, canonicalTarget)) {
           broken.push({ ...link, reason: 'symlink target escapes repository root' });
+        } else if (
+          fragment &&
+          canonicalTarget === canonicalReadme &&
+          !anchors.has(fragment)
+        ) {
+          broken.push({ ...link, reason: `heading anchor #${fragment} does not exist` });
         }
       } catch {
         broken.push({ ...link, reason: 'target does not exist' });

@@ -120,6 +120,23 @@ describe('untrusted repository hardening', () => {
     }
   });
 
+  it('reports missing same-document heading anchors', async () => {
+    const repository = await mkdtemp(path.join(tmpdir(), 'readme-fit-anchor-'));
+    try {
+      await writeFile(
+        path.join(repository, 'README.md'),
+        '# Existing heading\n\n[Missing section](#does-not-exist)\n',
+      );
+      const report = await analyzeRepository(repository);
+      expect(
+        report.findings.find((finding) => finding.id === 'correctness.link.exists')
+          ?.observation,
+      ).toMatch(/heading anchor/i);
+    } finally {
+      await rm(repository, { recursive: true, force: true });
+    }
+  });
+
   it('rejects a README larger than the static inspection limit', async () => {
     const repository = await mkdtemp(path.join(tmpdir(), 'readme-fit-large-'));
     try {

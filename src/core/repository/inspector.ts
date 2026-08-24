@@ -2,6 +2,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import ignore from 'ignore';
 import type { RepositorySnapshot } from '../../models/index.js';
+import { isValidPyproject } from './python-metadata.js';
 
 const DEFAULT_IGNORES = [
   '.git/',
@@ -110,6 +111,12 @@ export async function inspectRepository(
   for (const [key, filename] of optional) {
     const value = await readOptional(root, filename);
     if (value !== undefined) Object.assign(snapshot, { [key]: value.trim() });
+  }
+  if (snapshot.pyproject && !isValidPyproject(snapshot.pyproject)) {
+    metadataIssues.push({
+      path: 'pyproject.toml',
+      message: 'pyproject.toml is not valid TOML and could not be inspected.',
+    });
   }
   const licenseName = files.find((file) =>
     /^licen[sc]e(?:\.|$)/i.test(path.basename(file)),

@@ -27,19 +27,31 @@ export const quickStartRule: Rule = {
   applies: ({ project }) => ONBOARDING_TYPES.has(project.primaryType) || project.hasCli,
   evaluate: ({ readme, project, config }) => {
     const commands = runnableCommands(readme);
-    const heading = readme.headings.find((item) =>
-      /quick\s*start|get(?:ting)? started|usage|install/i.test(item.text),
+    const onboardingSection = readme.sections.find((item) =>
+      /quick\s*start|get(?:ting)? started|usage|install/i.test(item.heading.text),
     );
-    const usageCommands = commands.filter((command) => command.kind === 'usage');
-    const codeExample = readme.codeBlocks.find((block) =>
-      /^(?:js|jsx|ts|tsx|javascript|typescript|py|python|rs|rust|go|java)$/i.test(
-        block.language ?? '',
-      ),
-    );
+    const commandsInSection = onboardingSection
+      ? commands.filter(
+          (command) =>
+            command.line >= onboardingSection.heading.line &&
+            command.line <= onboardingSection.endLine,
+        )
+      : [];
+    const usageCommands = commandsInSection.filter((command) => command.kind === 'usage');
+    const codeExample = onboardingSection
+      ? readme.codeBlocks.find(
+          (block) =>
+            block.line >= onboardingSection.heading.line &&
+            block.line <= onboardingSection.endLine &&
+            /^(?:js|jsx|ts|tsx|javascript|typescript|py|python|rs|rust|go|java)$/i.test(
+              block.language ?? '',
+            ),
+        )
+      : undefined;
     const successStep = ['library', 'sdk'].includes(project.primaryType)
       ? usageCommands.length > 0 || Boolean(codeExample)
       : usageCommands.length > 0;
-    const passes = successStep && Boolean(heading);
+    const passes = successStep && Boolean(onboardingSection);
     const weight = ruleWeight(
       'onboarding.quick-start.present',
       project.primaryType,
@@ -83,9 +95,9 @@ export const quickStartRule: Rule = {
                 },
                 {
                   type: 'onboarding-heading',
-                  message: heading?.text ?? 'not found',
+                  message: onboardingSection?.heading.text ?? 'not found',
                   path: readme.path,
-                  ...(heading ? { line: heading.line } : {}),
+                  ...(onboardingSection ? { line: onboardingSection.heading.line } : {}),
                 },
               ],
             }),
@@ -94,7 +106,7 @@ export const quickStartRule: Rule = {
         runnableCommands: commands,
         installCommands: commands.filter((command) => command.kind === 'install'),
         usageCommands,
-        quickStartHeading: heading ?? null,
+        quickStartHeading: onboardingSection?.heading ?? null,
       },
     };
   },

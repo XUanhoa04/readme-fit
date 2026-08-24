@@ -122,4 +122,43 @@ describe('analysis edge cases and scoring math', () => {
       },
     );
   });
+
+  it('checks npx package targets as repository claims', async () => {
+    await temporaryRepository(
+      {
+        'README.md': '# Tool\n\nUseful tool.\n\n```bash\nnpx wrong-tool scan\n```\n',
+        'package.json': JSON.stringify({
+          name: 'real-tool',
+          bin: { 'real-tool': 'dist/cli.js' },
+        }),
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        expect(
+          report.findings.some(
+            (finding) => finding.id === 'correctness.package-name.matches',
+          ),
+        ).toBe(true);
+      },
+    );
+  });
+
+  it('surfaces malformed pyproject metadata', async () => {
+    await temporaryRepository(
+      {
+        'README.md': '# Python tool\n\nUseful package.\n',
+        'pyproject.toml': '[project\nname = "broken"\n',
+      },
+      async (root) => {
+        const report = await analyzeRepository(root);
+        expect(
+          report.findings.some(
+            (finding) =>
+              finding.id === 'correctness.metadata.parseable' &&
+              finding.source?.path === 'pyproject.toml',
+          ),
+        ).toBe(true);
+      },
+    );
+  });
 });

@@ -1,30 +1,13 @@
 import type { Rule } from '../../rules/types.js';
 import { failScore, finding, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
-
-interface CommandReference {
-  command: string;
-  script: string;
-  line: number;
-}
-
-function npmCommands(value: string, startLine: number): CommandReference[] {
-  const results: CommandReference[] = [];
-  value.split(/\r?\n/).forEach((line, index) => {
-    const run = line.match(/(?:^|[;&|]\s*)(?:npm|pnpm|yarn|bun)\s+run\s+([\w:.-]+)/);
-    const shorthand = line.match(/(?:^|[;&|]\s*)(?:npm|bun)\s+(test|start)\b/);
-    const match = run ?? shorthand;
-    if (match?.[1])
-      results.push({ command: line.trim(), script: match[1], line: startLine + index + 1 });
-  });
-  return results;
-}
+import { parseReadmeCommands } from '../../core/claims/commands.js';
 
 export const commandExistsRule: Rule = {
   id: 'correctness.command.exists',
   category: 'correctness',
   description:
-    'Checks documented npm, pnpm, and Yarn script commands against package.json without executing them.',
+    'Checks documented npm, pnpm, Yarn, and Bun script commands against package.json without executing them.',
   applies: ({ repository }) => Boolean(repository.packageJson),
   evaluate: ({ repository, readme, project, config }) => {
     const weight = ruleWeight(
@@ -34,11 +17,11 @@ export const commandExistsRule: Rule = {
     );
     const scriptsValue = repository.packageJson?.scripts;
     const scripts =
-      scriptsValue && typeof scriptsValue === 'object'
+      scriptsValue && typeof scriptsValue === 'object' && !Array.isArray(scriptsValue)
         ? (scriptsValue as Record<string, unknown>)
         : {};
-    const commands = readme.codeBlocks.flatMap((block) =>
-      npmCommands(block.value, block.line),
+    const commands = parseReadmeCommands(readme).filter(
+      (command): command is typeof command & { script: string } => Boolean(command.script),
     );
     const invalid = commands.filter((item) => !(item.script in scripts));
     return {
@@ -74,6 +57,7 @@ export const commandExistsRule: Rule = {
               message: item.command,
               path: readme.path,
               line: item.line,
+              value: { manager: item.manager, script: item.script },
             },
             {
               type: 'package-scripts',
@@ -84,7 +68,14 @@ export const commandExistsRule: Rule = {
           ],
         }),
       ),
-      facts: { documentedPackageCommands: commands },
+      facts: {
+        documentedPackageCommands: commands.map((command) => ({
+          command: command.command,
+          script: command.script,
+          line: command.line,
+          manager: command.manager,
+        })),
+      },
     };
   },
 };

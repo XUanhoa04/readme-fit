@@ -8,6 +8,7 @@ import { getRules } from '../rules/registry.js';
 import { classifyProject } from '../classifiers/project-type/classifier.js';
 import '../rules/builtin.js';
 import { normalizeRuleScore } from '../rules/helpers.js';
+import { buildEvidenceGraph } from './evidence/graph.js';
 
 function isInside(root: string, target: string): boolean {
   const relative = path.relative(root, target);
@@ -52,12 +53,14 @@ export async function analyzeRepository(
   }
   const readme = parseReadme(raw, path.relative(root, readmePath).replaceAll('\\', '/'));
   const project: ProjectProfile = classifyProject(repository, config.project.type);
+  const evidenceGraph = buildEvidenceGraph(repository, readme);
   const context = {
     repository,
     readme,
     project,
     config,
     options: { checkLinks: Boolean(options.checkLinks) },
+    evidenceGraph,
   };
   const findings = [];
   const scores: AnalysisReport['scores'] = {};
@@ -112,7 +115,7 @@ export async function analyzeRepository(
   facts.firstImpression = impressionFacts;
   const numeric = Object.values(scores).flatMap((score) => score?.score ?? []);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     project,
     readme: { path: readme.path, lines: readme.lineCount, words: readme.wordCount },
@@ -170,5 +173,6 @@ export async function analyzeRepository(
           ]
         : []),
     ],
+    evidenceGraph,
   };
 }

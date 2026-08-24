@@ -56,6 +56,15 @@ describe('repository analysis', () => {
 
   it('keeps the stable JSON schema explicit', async () => {
     const report = await analyzeRepository(fixture('good-cli'));
+    expect(report.evidenceGraph.claims.length).toBeGreaterThan(0);
+    expect(report.evidenceGraph.verifications).toHaveLength(
+      report.evidenceGraph.claims.length,
+    );
+    expect(
+      report.evidenceGraph.verifications.some(
+        (verification) => verification.state === 'verified',
+      ),
+    ).toBe(true);
     expect({
       schemaVersion: report.schemaVersion,
       projectType: report.project.primaryType,
@@ -83,7 +92,7 @@ describe('repository analysis', () => {
           "title",
         ],
         "projectType": "cli",
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "scoreCategories": [
           "clarity",
           "completeness",

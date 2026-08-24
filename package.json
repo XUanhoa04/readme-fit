@@ -52,7 +52,11 @@
     "commander": "^14.0.0",
     "ignore": "^7.0.5",
     "picocolors": "^1.1.1",
+    "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
+    "semver": "^7.8.5",
+    "smol-toml": "^1.8.0",
+    "spdx-expression-parse": "^5.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
     "yaml": "^2.8.1"
@@ -60,6 +64,8 @@
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/node": "^24.2.1",
+    "@types/semver": "^7.8.0",
+    "@types/spdx-expression-parse": "^4.0.0",
     "eslint": "^9.33.0",
     "prettier": "^3.6.2",
     "tsx": "^4.23.12",

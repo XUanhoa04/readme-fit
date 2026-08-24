@@ -1,5 +1,6 @@
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
 import type { RootContent } from 'mdast';
 import type {
@@ -27,7 +28,7 @@ function currentSection(headings: Heading[], line: number): string | undefined {
 }
 
 export function parseReadme(raw: string, path = 'README.md'): ReadmeDocument {
-  const tree = unified().use(remarkParse).parse(raw);
+  const tree = unified().use(remarkParse).use(remarkGfm).parse(raw);
   const headings: Heading[] = [];
   const codeBlocks: CodeBlock[] = [];
   const links: ReadmeLink[] = [];
