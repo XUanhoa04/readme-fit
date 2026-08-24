@@ -277,14 +277,16 @@ export async function loadConfig(
   root: string,
   knownRuleIds: ReadonlySet<string> = new Set(),
 ): Promise<ReadmeFitConfig> {
-  const yml = await readOptional(root, '.readme-fit.yml');
-  const yaml = await readOptional(root, '.readme-fit.yaml');
+  const resolvedRoot = path.resolve(root);
+  const yml = await readOptional(resolvedRoot, '.readme-fit.yml');
+  const yaml = await readOptional(resolvedRoot, '.readme-fit.yaml');
   if (yml && yaml)
     throw new Error('Use only one config file: .readme-fit.yml or .readme-fit.yaml.');
   const raw = yml ?? yaml;
   if (!raw) return structuredClone(DEFAULT_CONFIG);
   const filename = yml ? '.readme-fit.yml' : '.readme-fit.yaml';
-  const parsed = await loadDocument(path.resolve(root), filename, new Set());
+  const canonicalRoot = await realpath(resolvedRoot);
+  const parsed = await loadDocument(canonicalRoot, filename, new Set());
   return validateConfig(parsed, knownRuleIds);
 }
 

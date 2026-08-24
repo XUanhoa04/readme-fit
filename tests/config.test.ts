@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -54,6 +54,29 @@ describe('configuration', () => {
     expect(config.project.type).toBe('cli');
     expect(config.rules.trust).toBe(false);
     expect(config.scoring.preset).toBe('portfolio');
+  });
+
+  it('loads extended configuration through a canonical repository alias', async () => {
+    const physicalRoot = await temporaryRepository();
+    const aliasContainer = await temporaryRepository();
+    await writeFile(
+      path.join(physicalRoot, 'base.yml'),
+      'version: 2\nproject:\n  type: cli\n',
+    );
+    await writeFile(
+      path.join(physicalRoot, '.readme-fit.yml'),
+      'version: 2\nextends: ./base.yml\n',
+    );
+    const aliasRoot = path.join(aliasContainer, 'repository-alias');
+    await symlink(
+      physicalRoot,
+      aliasRoot,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+
+    const config = await loadConfig(aliasRoot);
+
+    expect(config.project.type).toBe('cli');
   });
 
   it('rejects escaping and cyclic config extends', async () => {
