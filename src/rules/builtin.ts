@@ -18,29 +18,33 @@ import { badgeRule } from '../analyzers/badges/rule.js';
 import { completenessRule } from '../analyzers/completeness/rule.js';
 import { trustLicenseRule, trustSignalsRule } from '../analyzers/trust/rules.js';
 import { impressionRules } from '../analyzers/impression/rules.js';
-import { registerRule } from './registry.js';
+import type { Rule } from './types.js';
 
-for (const rule of [
-  commandExistsRule,
-  relativeLinkRule,
-  externalLinkRule,
-  metadataParseRule,
-  packageNameRule,
-  packageManagerRule,
-  runtimeRule,
-  licenseRule,
-  heroExplanationRule,
-  structureRule,
-  quickStartRule,
-  firstCommandRule,
-  expectedOutputRule,
-  demoPresenceRule,
-  demoPlacementRule,
-  badgeRule,
-  completenessRule,
-  trustLicenseRule,
-  trustSignalsRule,
-  ...impressionRules,
-]) {
-  registerRule(rule);
+const BUILTIN_RULES: readonly Rule[] = Object.freeze(
+  [
+    commandExistsRule,
+    relativeLinkRule,
+    externalLinkRule,
+    metadataParseRule,
+    packageNameRule,
+    packageManagerRule,
+    runtimeRule,
+    licenseRule,
+    heroExplanationRule,
+    structureRule,
+    quickStartRule,
+    firstCommandRule,
+    expectedOutputRule,
+    demoPresenceRule,
+    demoPlacementRule,
+    badgeRule,
+    completenessRule,
+    trustLicenseRule,
+    trustSignalsRule,
+    ...impressionRules,
+  ].map((rule) => Object.freeze(rule)),
+);
+
+export function createBuiltinRules(): Rule[] {
+  return [...BUILTIN_RULES];
 }

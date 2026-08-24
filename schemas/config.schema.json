@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/XUanhoa04/readme-fit/main/schemas/config.schema.json",
+  "title": "readme-fit configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 2 },
+    "extends": { "type": "string", "minLength": 1 },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "type": { "type": "string" } }
+    },
+    "readme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "path": { "type": "string", "minLength": 1 } }
+    },
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preset": { "enum": ["minimal", "balanced", "oss", "portfolio"] }
+      }
+    },
+    "ignore": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rules": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "paths": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "correctness": { "type": "boolean" },
+        "completeness": { "type": "boolean" },
+        "onboarding": { "type": "boolean" },
+        "clarity": { "type": "boolean" },
+        "visual_proof": { "type": "boolean" },
+        "first_impression": { "type": "boolean" },
+        "trust": { "type": "boolean" },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "weight": { "type": "integer", "minimum": 0, "maximum": 1000 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/XUanhoa04/readme-fit/main/schemas/baseline.schema.json",
+  "title": "readme-fit baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "fingerprintVersion",
+    "createdAt",
+    "projectType",
+    "scores",
+    "findings"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "fingerprintVersion": { "enum": [1, 2] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "projectType": { "type": "string" },
+    "scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["integer", "null"],
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fingerprint", "subject", "id", "title", "category", "severity"],
+        "properties": {
+          "fingerprint": { "type": "string" },
+          "subject": { "type": "string" },
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "category": { "type": "string" },
+          "severity": { "type": "string" },
+          "path": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

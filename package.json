@@ -9,6 +9,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./rules": {
+      "types": "./dist/rules/index.d.ts",
+      "import": "./dist/rules/index.js"
+    },
+    "./reporters": {
+      "types": "./dist/reporters/index.d.ts",
+      "import": "./dist/reporters/index.js"
+    },
+    "./config": {
+      "types": "./dist/core/config/config.d.ts",
+      "import": "./dist/core/config/config.js"
     }
   },
   "bin": {
@@ -17,6 +29,8 @@
   "files": [
     "dist",
     "skills",
+    "schemas",
+    "action.yml",
     "LICENSE",
     "README.md"
   ],

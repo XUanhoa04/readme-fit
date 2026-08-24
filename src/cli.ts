@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeRepository } from './core/analysis.js';
 import { compareBaseline, createBaseline, loadBaseline } from './core/baseline.js';
-import { explainRule, getRules } from './rules/registry.js';
+import { createBuiltinRules } from './rules/builtin.js';
 import { renderJson } from './reporters/json.js';
 import { renderSarif } from './reporters/sarif.js';
 import { renderGitHub } from './reporters/github.js';
@@ -19,8 +19,10 @@ import { renderProfileTerminal } from './profile/reporter.js';
 import { VERSION } from './version.js';
 import { attachDiff, changedFilesSince, reportFindings } from './core/git-diff.js';
 import { writeOutput } from './core/output.js';
+import { loadConfig } from './core/config/config.js';
 
 const program = new Command();
+const builtinRules = createBuiltinRules();
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
 const SCAN_CATEGORIES = [
   'correctness',
@@ -255,13 +257,41 @@ program
       const target = path.resolve(repositoryPath, '.readme-fit.yml');
       await writeFile(
         target,
-        'version: 1\nproject:\n  type: auto\nscoring:\n  preset: balanced\n',
+        'version: 2\nproject:\n  type: auto\nscoring:\n  preset: balanced\n',
         { encoding: 'utf8', flag: 'wx' },
       );
       process.stdout.write(`Created ${target}\n`);
     } catch (error) {
       process.stderr.write(
         `readme-fit init: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 2;
+    }
+  });
+
+const configCommand = program
+  .command('config')
+  .description('Manage readme-fit configuration');
+
+configCommand
+  .command('validate')
+  .description('Validate and normalize the declarative configuration')
+  .argument('[path]', 'repository path', '.')
+  .option('--json', 'emit normalized configuration as JSON')
+  .action(async (repositoryPath: string, options: { json?: boolean }) => {
+    try {
+      const config = await loadConfig(
+        path.resolve(repositoryPath),
+        new Set(builtinRules.map((rule) => rule.id)),
+      );
+      process.stdout.write(
+        options.json
+          ? `${JSON.stringify(config, null, 2)}\n`
+          : `readme-fit config: valid v${config.version}${config.migratedFrom ? ` (migrated from v${config.migratedFrom})` : ''}\n`,
+      );
+    } catch (error) {
+      process.stderr.write(
+        `readme-fit config: ${error instanceof Error ? error.message : String(error)}\n`,
       );
       process.exitCode = 2;
     }
@@ -329,7 +359,7 @@ program
   .option('--json', 'emit machine-readable JSON')
   .option('--format <format>', 'output format: text or json', 'text')
   .action((ruleId: string, options: { json?: boolean; format: string }) => {
-    const rule = explainRule(ruleId);
+    const rule = builtinRules.find((candidate) => candidate.id === ruleId);
     if (!rule) {
       process.stderr.write(`Unknown rule: ${ruleId}\n`);
       process.exitCode = 2;
@@ -388,7 +418,7 @@ program
   .option('--json', 'emit machine-readable JSON')
   .option('--format <format>', 'output format: text or json', 'text')
   .action((options: { json?: boolean; format: string }) => {
-    const rules = getRules().map((rule) => ({
+    const rules = builtinRules.map((rule) => ({
       id: rule.id,
       category: rule.category,
       description: rule.description,

@@ -4,9 +4,9 @@ import { loadConfig, resolveReadme } from './config/config.js';
 import { parseReadme } from './markdown/parser.js';
 import { inspectRepository, MAX_INSPECTED_TEXT_BYTES } from './repository/inspector.js';
 import type { AnalysisReport, CategoryScore, ProjectProfile } from '../models/index.js';
-import { getRules } from '../rules/registry.js';
 import { classifyProject } from '../classifiers/project-type/classifier.js';
-import '../rules/builtin.js';
+import { createBuiltinRules } from '../rules/builtin.js';
+import type { Rule } from '../rules/types.js';
 import { normalizeRuleScore } from '../rules/helpers.js';
 import { buildEvidenceGraph } from './evidence/graph.js';
 import { categoryWeight } from '../scoring/weights.js';
@@ -25,6 +25,7 @@ export interface AnalysisOptions {
 export async function analyzeRepository(
   rootInput: string,
   options: AnalysisOptions = {},
+  rules: readonly Rule[] = createBuiltinRules(),
 ): Promise<AnalysisReport> {
   const repositoryRoot = path.resolve(rootInput);
   const root = options.projectPath
@@ -40,7 +41,7 @@ export async function analyzeRepository(
   if (!isInside(canonicalRepositoryRoot, canonicalProjectRoot)) {
     throw new Error('projectPath must resolve inside the repository root.');
   }
-  const config = await loadConfig(root, new Set(getRules().map((rule) => rule.id)));
+  const config = await loadConfig(root, new Set(rules.map((rule) => rule.id)));
   if (options.readmePath !== undefined) {
     if (!options.readmePath.trim()) throw new Error('readmePath must not be empty.');
     config.readme.path = options.readmePath;
@@ -90,7 +91,7 @@ export async function analyzeRepository(
     workspace: repository.workspace,
     projectPath: options.projectPath?.replaceAll('\\', '/').replace(/\/$/, '') || '.',
   };
-  for (const rule of getRules()) {
+  for (const rule of rules) {
     const configKey =
       rule.category === 'visual-proof'
         ? 'visual_proof'
@@ -99,6 +100,7 @@ export async function analyzeRepository(
           : rule.category;
     if (
       config.rules[configKey] === false ||
+      config.ruleOverrides[rule.id]?.enabled === false ||
       config.ignore.rules.includes(rule.id) ||
       !rule.applies(context)
     )
@@ -120,7 +122,19 @@ export async function analyzeRepository(
         coverage: 0,
         rules: [],
       } satisfies CategoryScore);
-    existing.rules.push(normalizeRuleScore(result.score));
+    const normalized = normalizeRuleScore(result.score);
+    const overrideWeight = config.ruleOverrides[rule.id]?.weight;
+    existing.rules.push(
+      overrideWeight === undefined || normalized.status === 'not_applicable'
+        ? normalized
+        : {
+            ...normalized,
+            weight: overrideWeight,
+            earned: normalized.weight
+              ? Math.round((normalized.earned / normalized.weight) * overrideWeight)
+              : 0,
+          },
+    );
     scores[category] = existing;
   }
   for (const score of Object.values(scores)) {

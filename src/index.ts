@@ -1,4 +1,13 @@
 export { analyzeRepository } from './core/analysis.js';
+export { Analyzer, createAnalyzer } from './analyzer.js';
+export {
+  RuleRegistry,
+  defineRule,
+  defineRulePack,
+  type RulePack,
+} from './rules/registry.js';
+export type { Rule, RuleResult, AnalysisContext } from './rules/types.js';
+export { createBuiltinRules } from './rules/builtin.js';
 export { parseReadme } from './core/markdown/parser.js';
 export { inspectRepository } from './core/repository/inspector.js';
 export { classifyProject } from './classifiers/project-type/classifier.js';

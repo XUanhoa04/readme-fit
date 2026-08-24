@@ -180,6 +180,9 @@ describe('CLI behavior', () => {
       const doctor = runCli(['doctor', temporary, '--json']);
       expect(doctor.status).toBe(0);
       expect(JSON.parse(doctor.stdout)).toMatchObject({ ok: true, readme: 'README.md' });
+      const validated = runCli(['config', 'validate', temporary, '--json']);
+      expect(validated.status).toBe(0);
+      expect(JSON.parse(validated.stdout)).toMatchObject({ version: 2 });
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
