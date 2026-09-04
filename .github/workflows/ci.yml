@@ -29,7 +29,13 @@ jobs:
       - run: npm run build
       - run: npm run dogfood
       - run: npm run test:package
-      - run: npm audit --audit-level=high
+      - name: Audit dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 22
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm audit --audit-level=high || (sleep 5 && npm audit --audit-level=high)
 
   coverage:
     runs-on: ubuntu-latest

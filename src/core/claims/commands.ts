@@ -42,6 +42,42 @@ const OPTIONS_WITH_VALUES = new Set([
   '-p',
 ]);
 
+const PACKAGE_MANAGER_BUILTINS = new Set([
+  'install',
+  'i',
+  'add',
+  'remove',
+  'rm',
+  'uninstall',
+  'update',
+  'upgrade',
+  'up',
+  'link',
+  'unlink',
+  'import',
+  'rebuild',
+  'rb',
+  'prune',
+  'env',
+  'init',
+  'create',
+  'publish',
+  'pack',
+  'audit',
+  'outdated',
+  'why',
+  'info',
+  'help',
+  'root',
+  'bin',
+  'config',
+  'setup',
+  'exec',
+  'dlx',
+  'node',
+  'pm',
+]);
+
 function splitSegments(line: string): string[] {
   const segments: string[] = [];
   let current = '';
@@ -245,8 +281,17 @@ function parseSegment(
         ...(packageTarget ? { packageTarget } : {}),
       };
     }
-    if (['pnpm', 'yarn', 'bun'].includes(manager) && positional(args)) {
-      return { ...base, kind: 'usage', manager };
+    if (['pnpm', 'yarn', 'bun'].includes(manager)) {
+      const target = positional(args);
+      if (target) {
+        const isScript = !PACKAGE_MANAGER_BUILTINS.has(target);
+        return {
+          ...base,
+          kind: 'usage',
+          manager,
+          ...(isScript ? { script: target } : {}),
+        };
+      }
     }
   }
 
