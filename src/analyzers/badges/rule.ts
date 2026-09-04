@@ -10,7 +10,9 @@ export const badgeRule: Rule = {
   applies: () => true,
   evaluate: ({ readme, project, config }) => {
     const badges = readme.images.filter((image) =>
-      /shields\.io|badge|badgen|github\.com\/.*actions\/workflows/i.test(image.url),
+      /shields\.io|badge|badgen|github\.com\/.*actions\/workflows|codecov\.io|coveralls\.io|sonarcloud\.io|circleci\.com|travis-ci\.(?:com|org)|deps\.rs/i.test(
+        image.url,
+      ),
     );
     const early = badges.filter((badge) => badge.line <= 15);
     const identities = badges.map((badge) =>
