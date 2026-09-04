@@ -6,6 +6,9 @@ import {
   pythonPackageName,
   pythonRuntimeConstraint,
 } from '../src/core/repository/python-metadata.js';
+import { parseReadme } from '../src/core/markdown/parser.js';
+import { runtimeRule } from '../src/analyzers/runtime/rule.js';
+import { DEFAULT_CONFIG } from '../src/core/config/config.js';
 
 const fixture = (name: string) => path.resolve('fixtures', name);
 
@@ -46,5 +49,41 @@ describe('Python repository evidence', () => {
         ),
       ),
     ).toBe(false);
+  });
+
+  it('recognizes markdown-formatted Node.js and Python runtime requirements', async () => {
+    const raw = '# Project\n\n- **Node.js**: >=20\n- **Python**: >=3.11\n';
+    const readme = parseReadme(raw, 'README.md');
+    const context = {
+      repository: {
+        root: '/mock',
+        files: ['README.md', 'package.json', 'pyproject.toml'],
+        licenseText: undefined,
+        packageJson: { engines: { node: '>=20.0.0' } },
+        pyproject: '[project]\nrequires-python = ">=3.11"\n',
+        inspection: { fileLimit: 10_000, truncated: false },
+        workspace: { isMonorepo: false, patterns: [], packages: [], lockfileConflicts: [] },
+      },
+      readme,
+      project: {
+        primaryType: 'library',
+        secondaryTypes: [],
+        languages: ['TypeScript', 'Python'],
+        packageManagers: ['npm', 'pip'],
+        hasCli: false,
+        hasWebUi: false,
+        hasTests: false,
+        hasLicense: false,
+        entrypoints: [],
+        confidence: 1,
+      },
+      config: DEFAULT_CONFIG,
+      options: { checkLinks: false },
+      evidenceGraph: { claims: [], evidence: [], verifications: [] },
+    } as Parameters<typeof runtimeRule.evaluate>[0];
+
+    const result = await runtimeRule.evaluate(context);
+    expect(result.score.status).toBe('pass');
+    expect(result.findings).toHaveLength(0);
   });
 });

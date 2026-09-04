@@ -165,4 +165,31 @@ describe('untrusted repository hardening', () => {
       await rm(temporary, { recursive: true, force: true });
     }
   });
+
+  it('recognizes modern CI and code quality badges in badge signal-to-noise check', async () => {
+    const repository = await mkdtemp(path.join(tmpdir(), 'readme-fit-badges-'));
+    try {
+      await writeFile(
+        path.join(repository, 'README.md'),
+        [
+          '# Project',
+          '',
+          '[![Coverage](https://codecov.io/gh/org/repo/branch/main/graph/badge.svg)](https://codecov.io)',
+          '[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=org_repo&metric=alert_status)](https://sonarcloud.io)',
+          '[![Dependencies](https://deps.rs/repo/github/org/repo/status.svg)](https://deps.rs)',
+          '',
+          'A modern reliable utility.',
+        ].join('\n'),
+      );
+      const report = await analyzeRepository(repository);
+      const badgeFacts = report.facts.badges as { count: number } | undefined;
+      expect(badgeFacts?.count).toBe(3);
+      expect(
+        report.scores.trust?.rules.find((r) => r.id === 'trust.badges.signal-to-noise')
+          ?.status,
+      ).toBe('pass');
+    } finally {
+      await rm(repository, { recursive: true, force: true });
+    }
+  });
 });

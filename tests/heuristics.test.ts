@@ -61,6 +61,23 @@ bunx my-tool scan
     );
   });
 
+  it('extracts script names for direct pnpm, bun, and yarn command invocations', () => {
+    const fence = '```';
+    const readme = parseReadme(
+      `# Scripts\n\n${fence}bash\npnpm build\nbun dev\nyarn test:unit\npnpm audit\n${fence}`,
+    );
+    const commands = parseReadmeCommands(readme);
+    expect(commands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ manager: 'pnpm', script: 'build', kind: 'usage' }),
+        expect.objectContaining({ manager: 'bun', script: 'dev', kind: 'usage' }),
+        expect.objectContaining({ manager: 'yarn', script: 'test:unit', kind: 'usage' }),
+      ]),
+    );
+    const auditCmd = commands.find((cmd) => cmd.command === 'pnpm audit');
+    expect(auditCmd?.script).toBeUndefined();
+  });
+
   it('does not count an unlabeled JSON input block as expected output', () => {
     const fence = '```';
     const readme = parseReadme(

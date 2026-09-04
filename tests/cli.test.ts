@@ -176,10 +176,28 @@ describe('CLI behavior', () => {
         'preset: balanced',
       );
       expect(runCli(['init', temporary]).status).toBe(2);
+      expect(runCli(['init', temporary, '--force']).status).toBe(0);
       writeFileSync(path.join(temporary, 'README.md'), '# Project\n\nA useful project.\n');
       const doctor = runCli(['doctor', temporary, '--json']);
       expect(doctor.status).toBe(0);
       expect(JSON.parse(doctor.stdout)).toMatchObject({ ok: true, readme: 'README.md' });
+
+      writeFileSync(
+        path.join(temporary, 'package.json'),
+        JSON.stringify({ name: 'test-pkg' }),
+      );
+      writeFileSync(path.join(temporary, 'package-lock.json'), '{}');
+      writeFileSync(path.join(temporary, 'yarn.lock'), '');
+      const conflictedDoctor = runCli(['doctor', temporary, '--json']);
+      expect(conflictedDoctor.status).toBe(0);
+      const conflictDiagnosis = JSON.parse(conflictedDoctor.stdout) as {
+        ok: boolean;
+        lockfileConflicts: string[];
+      };
+      expect(conflictDiagnosis.ok).toBe(false);
+      expect(conflictDiagnosis.lockfileConflicts).toContain('npm');
+      expect(conflictDiagnosis.lockfileConflicts).toContain('yarn');
+
       const validated = runCli(['config', 'validate', temporary, '--json']);
       expect(validated.status).toBe(0);
       expect(JSON.parse(validated.stdout)).toMatchObject({ version: 2 });
