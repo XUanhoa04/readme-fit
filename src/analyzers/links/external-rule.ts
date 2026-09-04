@@ -5,6 +5,8 @@ import type { Rule } from '../../rules/types.js';
 import { failScore, finding, naScore, passScore } from '../../rules/helpers.js';
 import { ruleWeight } from '../../scoring/weights.js';
 
+import { VERSION } from '../../version.js';
+
 export type ExternalLinkStatus = 'reachable' | 'broken' | 'unverified' | 'skipped';
 
 export interface ExternalLinkResult {
@@ -22,6 +24,10 @@ export interface ExternalLinkCheckOptions {
 const REQUEST_TIMEOUT_MS = 5_000;
 const MAX_REDIRECTS = 5;
 const DEFAULT_MAX_LINKS = 100;
+const DEFAULT_HEADERS: Record<string, string> = {
+  'User-Agent': `readme-fit/${VERSION} (+https://github.com/XUanhoa04/readme-fit)`,
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+};
 
 class UnsafeUrlError extends Error {}
 
@@ -115,7 +121,10 @@ async function requestFollowingRedirects(
     const response = await fetcher(current.href, {
       method,
       redirect: 'manual',
-      ...(method === 'GET' ? { headers: { Range: 'bytes=0-0' } } : {}),
+      headers: {
+        ...DEFAULT_HEADERS,
+        ...(method === 'GET' ? { Range: 'bytes=0-0' } : {}),
+      },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (response.status < 300 || response.status >= 400) return response;
