@@ -252,13 +252,14 @@ program
   .command('init')
   .description('Create a safe declarative readme-fit configuration')
   .argument('[path]', 'repository path', '.')
-  .action(async (repositoryPath: string) => {
+  .option('-f, --force', 'overwrite existing configuration file')
+  .action(async (repositoryPath: string, options: { force?: boolean }) => {
     try {
       const target = path.resolve(repositoryPath, '.readme-fit.yml');
       await writeFile(
         target,
         'version: 2\nproject:\n  type: auto\nscoring:\n  preset: balanced\n',
-        { encoding: 'utf8', flag: 'wx' },
+        { encoding: 'utf8', flag: options.force ? 'w' : 'wx' },
       );
       process.stdout.write(`Created ${target}\n`);
     } catch (error) {
@@ -305,23 +306,34 @@ program
   .action(async (repositoryPath: string, options: { json?: boolean }) => {
     try {
       const report = await analyzeRepository(repositoryPath);
+      const workspace = report.facts.workspace as
+        | { lockfileConflicts?: string[]; isMonorepo?: boolean; packages?: unknown[] }
+        | undefined;
+      const lockfileConflicts = workspace?.lockfileConflicts ?? [];
+      const hasConflicts = lockfileConflicts.length > 0;
       const diagnosis = {
-        ok: true,
+        ok: !hasConflicts,
         version: VERSION,
         node: process.version,
         projectType: report.project.primaryType,
         rubricStatus: report.project.rubricStatus,
         readme: report.readme.path,
+        lockfileConflicts,
         inspectionTruncated: report.facts.repositoryInspection
           ? (report.facts.repositoryInspection as { truncated?: boolean }).truncated ===
             true
           : false,
       };
-      process.stdout.write(
-        options.json
-          ? `${JSON.stringify(diagnosis, null, 2)}\n`
-          : `readme-fit doctor: OK\nNode ${diagnosis.node}\nProject ${diagnosis.projectType} (${diagnosis.rubricStatus} rubric)\nREADME ${diagnosis.readme}\n`,
-      );
+      if (options.json) {
+        process.stdout.write(`${JSON.stringify(diagnosis, null, 2)}\n`);
+      } else {
+        const status = diagnosis.ok ? 'OK' : 'WARNING (lockfile conflict)';
+        let text = `readme-fit doctor: ${status}\nNode ${diagnosis.node}\nProject ${diagnosis.projectType} (${diagnosis.rubricStatus} rubric)\nREADME ${diagnosis.readme}\n`;
+        if (hasConflicts) {
+          text += `Lockfile conflicts detected: ${lockfileConflicts.join(', ')}\n`;
+        }
+        process.stdout.write(text);
+      }
     } catch (error) {
       process.stderr.write(
         `readme-fit doctor: ${error instanceof Error ? error.message : String(error)}\n`,
