@@ -40,7 +40,7 @@ function nodeComparison(
   raw: string,
 ): RuntimeComparison | undefined {
   const readmeMatch =
-    /Node(?:\.js)?\s*(?:version\s*)?(>=|>|<=|<|=|~\s*|\^\s*|v)?\s*(\d+(?:\.\d+){0,2})/i.exec(
+    /(?:[*_`]{1,2})?Node(?:\.js)?(?:[*_`]{1,2})?\s*(?::|-)?\s*(?:version\s*)?(>=|>|<=|<|=|~\s*|\^\s*|v)?\s*(\d+(?:\.\d+){0,2})(\+)?/i.exec(
       raw,
     );
   const engine = repository.packageJson?.engines;
@@ -56,7 +56,8 @@ function nodeComparison(
   const declaredVersion = declared ? version(declared, 1) : undefined;
   if (!readmeVersion || !declared || !declaredVersion) return undefined;
   const fromEngine = Boolean(engineNode);
-  const readmeRange = nodeRange(readmeMatch?.[1], readmeVersion);
+  const operator = readmeMatch?.[1] ?? (readmeMatch?.[3] === '+' ? '>=' : undefined);
+  const readmeRange = nodeRange(operator, readmeVersion);
   const declaredRange = fromEngine ? validRange(declared) : undefined;
   return {
     runtime: 'Node',
@@ -79,7 +80,10 @@ function pythonComparison(
   repository: Parameters<Rule['evaluate']>[0]['repository'],
   raw: string,
 ): RuntimeComparison | undefined {
-  const readmeMatch = /Python\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)(?:\.(\d+))?/i.exec(raw);
+  const readmeMatch =
+    /(?:[*_`]{1,2})?Python(?:[*_`]{1,2})?\s*(?::|-)?\s*(?:version\s*)?(?:>=|≥|v)?\s*(\d+)(?:\.(\d+))?(\+)?/i.exec(
+      raw,
+    );
   const pyprojectConstraint = pythonRuntimeConstraint(repository.pyproject);
   const declared = pyprojectConstraint ?? repository.pythonVersion;
   if (!readmeMatch?.[1] || !declared) return undefined;
